@@ -1,7 +1,10 @@
-const spotifyApi = require("../utils/spotifyApi");
-const querystring = require("querystring");
-const db = require("../utils/db"); // Import database utility
-const { globalState } = require("../../index"); // Import global state
+import { createSpotifyApiClient } from "../utils/spotifyApi.js"; // Changed import and added .js
+import querystring from "querystring"; // Changed import
+import { saveTokens } from "../utils/db.js"; // Changed import, added .js, only import needed function
+import { globalState } from "../../index.js"; // Changed import and added .js
+
+// Initialize the API client once
+const spotifyApi = createSpotifyApiClient();
 
 // Define the scopes required by the application
 // Reference: https://developer.spotify.com/documentation/web-api/concepts/scopes
@@ -27,12 +30,7 @@ const scopes = [
   "user-follow-modify",
 ];
 
-// Remove in-memory storage, will use DB now
-// let accessToken = null;
-// let refreshToken = null;
-// let expiresAt = null;
-
-exports.login = (req, res) => {
+export const login = (req, res) => {
   // Generate a random state string for security
   const state = Math.random().toString(36).substring(2, 15);
   // Store state in session
@@ -44,7 +42,7 @@ exports.login = (req, res) => {
   res.redirect(authorizeURL);
 };
 
-exports.callback = async (req, res) => {
+export const callback = async (req, res) => {
   const { code, state, error } = req.query;
   const storedState = req.session.spotifyAuthState;
 
@@ -98,7 +96,7 @@ exports.callback = async (req, res) => {
     console.log("Fetched user info:", { userId, userDisplayName });
 
     // Save tokens to the database
-    await db.saveTokens(userId, accessToken, refreshToken, expiresAt);
+    await saveTokens(userId, accessToken, refreshToken, expiresAt); // Use imported function
 
     // Store user ID in session to mark as logged in
     req.session.userId = userId;

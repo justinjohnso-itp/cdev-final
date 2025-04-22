@@ -1,5 +1,5 @@
-const db = require("./db");
-const SpotifyWebApi = require("spotify-web-api-node");
+import { getTokens, saveTokens } from "./db.js"; // Changed import and added .js
+import SpotifyWebApi from "spotify-web-api-node"; // Changed import
 
 // Re-initialize a SpotifyWebApi instance (needed because the global one might have wrong tokens)
 // This ensures we use the correct credentials for refreshing
@@ -14,14 +14,15 @@ const spotifyApiRefresh = new SpotifyWebApi({
  * @param {string} userId - The Spotify user ID.
  * @returns {Promise<SpotifyWebApi|null>} A configured SpotifyWebApi instance with valid tokens, or null if tokens are not found or refresh fails.
  */
-async function getAuthenticatedSpotifyApi(userId) {
+export async function getAuthenticatedSpotifyApi(userId) {
+  // Changed to export
   if (!userId) {
     console.error("getAuthenticatedSpotifyApi called without userId");
     return null;
   }
 
   try {
-    const tokenInfo = await db.getTokens(userId);
+    const tokenInfo = await getTokens(userId); // Use imported function
 
     if (!tokenInfo) {
       console.error(`No tokens found in DB for user: ${userId}`);
@@ -54,7 +55,7 @@ async function getAuthenticatedSpotifyApi(userId) {
         }
 
         // Save the updated tokens back to the database
-        await db.saveTokens(userId, access_token, refresh_token, expires_at);
+        await saveTokens(userId, access_token, refresh_token, expires_at); // Use imported function
         console.log(`Token refreshed and saved for user: ${userId}`);
       } catch (refreshError) {
         console.error(
@@ -91,5 +92,3 @@ async function getAuthenticatedSpotifyApi(userId) {
     return null;
   }
 }
-
-module.exports = { getAuthenticatedSpotifyApi };

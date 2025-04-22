@@ -1,7 +1,8 @@
-const { getAuthenticatedSpotifyApi } = require("../utils/tokenHelper"); // Import the new helper
+import { getAuthenticatedSpotifyApi } from "../utils/tokenHelper.js"; // Changed import and added .js
 
 // Middleware to ensure user is authenticated and tokens are valid/refreshed
-const requireAuth = async (req, res, next) => {
+export const requireAuth = async (req, res, next) => {
+  // Changed to export
   const userId = req.session.userId;
 
   if (!userId) {
@@ -25,12 +26,10 @@ const requireAuth = async (req, res, next) => {
       req.session.destroy((err) => {
         if (err) console.error("Error destroying session:", err);
       });
-      return res
-        .status(401)
-        .json({
-          error:
-            "Authentication invalid or session expired. Please log in again.",
-        });
+      return res.status(401).json({
+        error:
+          "Authentication invalid or session expired. Please log in again.",
+      });
     }
 
     // Attach the authenticated client and user ID to the request object
@@ -47,5 +46,3 @@ const requireAuth = async (req, res, next) => {
       .json({ error: "Internal server error during authentication check." });
   }
 };
-
-module.exports = { requireAuth };

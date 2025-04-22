@@ -1,7 +1,7 @@
-const express = require("express");
-const { requireAuth } = require("../middleware/authMiddleware");
-const { globalState } = require("../../index"); // Import global state
-const { getAuthenticatedSpotifyApi } = require("../utils/tokenHelper"); // Import token helper
+import express from "express";
+import { requireAuth } from "../middleware/authMiddleware.js"; // Changed import and added .js
+import { globalState } from "../../index.js"; // Changed import and added .js
+import { getAuthenticatedSpotifyApi } from "../utils/tokenHelper.js"; // Changed import and added .js
 
 const router = express.Router();
 
@@ -208,4 +208,4 @@ router.get("/device/data", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router; // Changed to export default

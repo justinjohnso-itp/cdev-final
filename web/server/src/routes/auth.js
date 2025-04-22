@@ -1,5 +1,5 @@
-const express = require("express");
-const authController = require("../controllers/authController");
+import express from "express";
+import * as authController from "../controllers/authController.js"; // Changed import and added .js
 
 const router = express.Router();
 
@@ -12,4 +12,4 @@ router.get("/callback", authController.callback);
 // TODO: Add route for refreshing token
 // router.get('/refresh_token', authController.refreshToken);
 
-module.exports = router;
+export default router; // Changed to export default
