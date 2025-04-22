@@ -12,6 +12,12 @@ const apiRoutes = require("./src/routes/api"); // Import API routes
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- Global State (Simple approach for this project) ---
+let activeSpotifyUserId = null; // Stores the Spotify ID of the last authenticated user
+// Export it for use in controllers (using a simple object wrapper)
+const globalState = { activeSpotifyUserId };
+module.exports.globalState = globalState;
+
 // --- Database Initialization ---
 initializeDatabase()
   .then(() => {

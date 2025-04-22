@@ -1,5 +1,7 @@
 const express = require("express");
 const { requireAuth } = require("../middleware/authMiddleware");
+const { globalState } = require("../../index"); // Import global state
+const { getAuthenticatedSpotifyApi } = require("../utils/tokenHelper"); // Import token helper
 
 const router = express.Router();
 
@@ -110,6 +112,99 @@ router.get("/audio-features", requireAuth, async (req, res) => {
         .json({ error: "Spotify API rate limit exceeded." });
     }
     res.status(500).json({ error: "Failed to fetch audio features." });
+  }
+});
+
+// --- Device Endpoint (Unauthenticated) ---
+router.get("/device/data", async (req, res) => {
+  const activeUserId = globalState.activeSpotifyUserId;
+
+  if (!activeUserId) {
+    console.log("Device Endpoint: No active user ID set.");
+    return res.json({ isPlaying: false, features: null });
+  }
+
+  console.log(
+    `Device Endpoint: Fetching data for active user: ${activeUserId}`
+  );
+
+  try {
+    // Get an authenticated Spotify API client for the active user
+    const spotifyApi = await getAuthenticatedSpotifyApi(activeUserId);
+
+    if (!spotifyApi) {
+      // Error logged within the helper function
+      console.error(
+        `Device Endpoint: Failed to get authenticated API client for user ${activeUserId}.`
+      );
+      return res.json({ isPlaying: false, features: null });
+    }
+
+    // Fetch playback state
+    const playbackState = await spotifyApi.getMyCurrentPlaybackState();
+
+    if (
+      !playbackState.body ||
+      !playbackState.body.is_playing ||
+      !playbackState.body.item
+    ) {
+      console.log(
+        `Device Endpoint: User ${activeUserId} is not currently playing anything.`
+      );
+      return res.json({ isPlaying: false, features: null });
+    }
+
+    const trackId = playbackState.body.item.id;
+    console.log(
+      `Device Endpoint: User ${activeUserId} is playing track ID: ${trackId}. Fetching audio features...`
+    );
+
+    // Fetch audio features
+    const featuresData = await spotifyApi.getAudioFeaturesForTrack(trackId);
+
+    if (!featuresData.body) {
+      console.error(
+        `Device Endpoint: Failed to get audio features for track ${trackId}`
+      );
+      // Don't treat this as a fatal error, maybe the track has no features?
+      // Return playing state but null features.
+      return res.json({ isPlaying: true, features: null });
+    }
+
+    // Construct features object (same as in /audio-features route)
+    const features = {
+      id: featuresData.body.id,
+      danceability: featuresData.body.danceability,
+      energy: featuresData.body.energy,
+      key: featuresData.body.key,
+      loudness: featuresData.body.loudness,
+      mode: featuresData.body.mode,
+      speechiness: featuresData.body.speechiness,
+      acousticness: featuresData.body.acousticness,
+      instrumentalness: featuresData.body.instrumentalness,
+      liveness: featuresData.body.liveness,
+      valence: featuresData.body.valence,
+      tempo: featuresData.body.tempo,
+      time_signature: featuresData.body.time_signature,
+    };
+
+    console.log(
+      `Device Endpoint: Successfully fetched data for user ${activeUserId}`
+    );
+    res.json({ isPlaying: true, features: features });
+  } catch (err) {
+    console.error(
+      `Device Endpoint: Error fetching data for user ${activeUserId}:`,
+      err
+    );
+    // Handle specific Spotify API errors if necessary (e.g., rate limits)
+    if (err.statusCode === 429) {
+      console.warn(
+        `Device Endpoint: Spotify API rate limit hit for user ${activeUserId}.`
+      );
+    }
+    // For the device, simplify error handling: just report not playing
+    res.json({ isPlaying: false, features: null });
   }
 });
 

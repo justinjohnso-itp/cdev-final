@@ -1,6 +1,7 @@
 const spotifyApi = require("../utils/spotifyApi");
 const querystring = require("querystring");
 const db = require("../utils/db"); // Import database utility
+const { globalState } = require("../../index"); // Import global state
 
 // Define the scopes required by the application
 // Reference: https://developer.spotify.com/documentation/web-api/concepts/scopes
@@ -102,6 +103,12 @@ exports.callback = async (req, res) => {
     // Store user ID in session to mark as logged in
     req.session.userId = userId;
     console.log(`User ${userId} logged in and session set.`);
+
+    // *** Update the active user ID in global state ***
+    globalState.activeSpotifyUserId = userId;
+    console.log(
+      `Set activeSpotifyUserId to: ${globalState.activeSpotifyUserId}`
+    );
 
     // Redirect to the frontend application
     // TODO: Make the redirect URL configurable (e.g., via .env)
