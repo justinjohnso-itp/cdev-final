@@ -9,4 +9,9 @@ This file tracks external code sources, tutorials, documentation pages, and conc
 
 ## Web (`/web`)
 
-*(No references yet)*
+- **Spotify Web API Node library**: Used for interacting with the Spotify Web API, including handling OAuth 2.0 authentication and making API calls.
+  - *Source:* [spotify-web-api-node GitHub](https://github.com/thelinmichael/spotify-web-api-node)
+- **Spotify Authorization Code Flow**: The OAuth 2.0 flow implemented for user authentication.
+  - *Source:* [Spotify Authorization Guide](https://developer.spotify.com/documentation/web-api/tutorials/code-flow)
+- **Spotify API Scopes**: Used to define the permissions requested from the user during authorization.
+  - *Source:* [Spotify Scopes Documentation](https://developer.spotify.com/documentation/web-api/concepts/scopes)
