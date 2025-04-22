@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "arduino"
+		},
+		{
+			"path": "web/server"
+		},
+		{
+			"path": "web/client"
+		},
+		{
+			"path": "Documentation"
+		},
+		{
+			"path": ".github"
+		}
+	],
+	"settings": {}
+}
