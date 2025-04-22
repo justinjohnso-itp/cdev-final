@@ -7,8 +7,8 @@
 
 // --- Configuration ---
 // NeoPixel Config
-#define LED_PIN    6  // Digital pin connected to the NeoPixels
-#define LED_COUNT 30 // Number of NeoPixels
+#define LED_PIN   2   // Digital pin connected to the NeoPixels
+#define LED_COUNT 256 // Number of NeoPixels
 
 // WiFi Credentials (from secrets.h)
 const char* ssid = WIFI_SSID;
@@ -27,8 +27,8 @@ unsigned long lastPollTime = 0;
 // --- Global Variables ---
 int status = WL_IDLE_STATUS; // WiFi status
 
-// NeoPixel Strip Object
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+// NeoPixel matrix Object
+Adafruit_NeoPixel matrix(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // HTTP Client Objects
 WiFiClient wifiClient; // TCP client for HTTP
@@ -39,19 +39,24 @@ void connectToWiFi();
 void fetchSpotifyData();
 void updateLEDs(const JsonDocument& features);
 void clearLEDs();
+void colorWipe(uint32_t color, int wait); // Added for startup animation
 
 // --- Setup Function ---
 void setup() {
   Serial.begin(9600);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
   Serial.println("Spotify LED Visualizer Starting...");
 
-  // Initialize NeoPixel strip
-  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip.show();            // Turn OFF all pixels ASAP
-  strip.setBrightness(50); // Set BRIGHTNESS (optional)
+  // Initialize NeoPixel matrix
+  matrix.begin();           // INITIALIZE NeoPixel matrix object (REQUIRED)
+  matrix.setBrightness(10); // Set BRIGHTNESS to 10% (26/255) for startup test
+  matrix.show();            // Turn OFF all pixels initially
+
+  // Run startup animation
+  Serial.println("Running startup LED animation...");
+  colorWipe(matrix.Color(0, 0, 255), 50); // Blue wipe
+  colorWipe(matrix.Color(0, 0, 0), 50);   // Clear wipe
+  matrix.setBrightness(10); // Reset brightness to default for normal operation (or keep 26 if preferred)
+  matrix.show(); // Ensure matrix is off after animation
 
   // Attempt to connect to WiFi
   connectToWiFi();
@@ -189,7 +194,7 @@ void fetchSpotifyData() {
 // Placeholder for updating LEDs based on audio features - to be implemented later
 void updateLEDs(const JsonDocument& doc) { // Takes the whole doc now
   // Extract features object
-  JsonObject features = doc["features"].as<JsonObject>();
+  JsonObjectConst features = doc["features"]; // Corrected: Use JsonObjectConst for read-only access
 
   if (features.isNull()) {
       Serial.println("Features object is null in JSON response.");
@@ -217,13 +222,23 @@ void updateLEDs(const JsonDocument& doc) { // Takes the whole doc now
   Serial.print(" -> Hue: "); Serial.print(hue);
   Serial.print(", Brightness: "); Serial.println(brightness);
 
-  strip.fill(strip.ColorHSV(hue, 255, brightness)); // Full saturation
-  strip.show();
+  matrix.fill(matrix.ColorHSV(hue, 255, brightness)); // Full saturation
+  matrix.show();
 }
 
 // Function to turn off all LEDs
 void clearLEDs() {
   Serial.println("Clearing LEDs.");
-  strip.fill(0);
-  strip.show();
+  matrix.fill(0);
+  matrix.show();
+}
+
+// Fill matrix pixels one after another with a color.
+// Used for startup animation.
+void colorWipe(uint32_t color, int wait) {
+  for(int i=0; i<matrix.numPixels(); i++) {
+    matrix.setPixelColor(i, color);
+    matrix.show();
+    delay(wait);
+  }
 }
