@@ -1,19 +1,24 @@
 {
 	"folders": [
 		{
-			"path": "arduino"
+			"name": ".github",
+			"path": ".github"
 		},
 		{
-			"path": "web/server"
-		},
-		{
-			"path": "web/client"
-		},
-		{
+			"name": "Documentation",
 			"path": "Documentation"
 		},
 		{
-			"path": ".github"
+			"name": "arduino",
+			"path": "arduino"
+		},
+		{
+			"name": "server",
+			"path": "web/server"
+		},
+		{
+			"name": "client",
+			"path": "web/client"
 		}
 	],
 	"settings": {}
