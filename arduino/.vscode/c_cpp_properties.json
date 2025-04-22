@@ -8,8 +8,8 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/include",
-                "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/src",
+                "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/include",
+                "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/src",
                 "/Users/justin/.platformio/packages/framework-arduino-samd/cores/arduino/api/deprecated",
                 "/Users/justin/.platformio/packages/framework-arduino-samd/cores/arduino/api/deprecated-avr-comp",
                 "/Users/justin/.platformio/packages/framework-cmsis@1.40500.0/CMSIS/Include",
@@ -33,8 +33,8 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/include",
-                    "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/src",
+                    "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/include",
+                    "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/src",
                     "/Users/justin/.platformio/packages/framework-arduino-samd/cores/arduino/api/deprecated",
                     "/Users/justin/.platformio/packages/framework-arduino-samd/cores/arduino/api/deprecated-avr-comp",
                     "/Users/justin/.platformio/packages/framework-cmsis@1.40500.0/CMSIS/Include",

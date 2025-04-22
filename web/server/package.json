@@ -14,9 +14,12 @@
   "license": "ISC",
   "packageManager": "pnpm@10.6.4",
   "dependencies": {
+    "connect-sqlite3": "^0.9.15",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-session": "^1.18.1",
     "spotify-web-api-node": "^5.0.2",
+    "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7"
   }
 }
