@@ -59,26 +59,57 @@ export const GET: APIRoute = async () => {
   });
   try {
     const playback = await spotifyApi.getMyCurrentPlaybackState();
+    console.log('Spotify playback response:', JSON.stringify(playback.body, null, 2));
     if (!playback.body || !playback.body.is_playing || !playback.body.item) {
       return new Response(JSON.stringify({ isPlaying: false }), { status: 200 });
     }
     const track = playback.body.item;
     const progress_ms = playback.body.progress_ms;
     const timestamp = playback.body.timestamp;
-    const features = await spotifyApi.getAudioFeaturesForTrack(track.id);
-    return new Response(JSON.stringify({
-      isPlaying: true,
-      progress_ms,
-      timestamp,
-      track: {
-        id: track.id,
-        name: track.name,
-        artists: track.artists.map((a: any) => a.name),
-        album: track.album.name,
-      },
-      features: features.body,
-    }), { status: 200 });
+    try {
+      const features = await spotifyApi.getAudioFeaturesForTrack(track.id);
+      return new Response(JSON.stringify({
+        isPlaying: true,
+        progress_ms,
+        timestamp,
+        track: {
+          id: track.id,
+          name: track.name,
+          artists: track.artists.map((a: any) => a.name),
+          album: track.album.name,
+        },
+        features: features.body,
+      }), { status: 200 });
+    } catch (featureErr: any) {
+      // If 403, return playback info with features: null
+      if (featureErr?.statusCode === 403) {
+        console.warn('Audio features forbidden for track:', track.id, track.name);
+        if (featureErr.body) {
+          console.warn('Spotify error body:', JSON.stringify(featureErr.body));
+        }
+        return new Response(JSON.stringify({
+          isPlaying: true,
+          progress_ms,
+          timestamp,
+          track: {
+            id: track.id,
+            name: track.name,
+            artists: track.artists.map((a: any) => a.name),
+            album: track.album.name,
+          },
+          features: null,
+          error: 'Audio features not available for this track.'
+        }), { status: 200 });
+      }
+      // Log all other errors
+      console.error('Error fetching audio features:', featureErr);
+      if (featureErr.body) {
+        console.error('Spotify error body:', JSON.stringify(featureErr.body));
+      }
+      return new Response(JSON.stringify({ error: 'Failed to fetch audio features' }), { status: 500 });
+    }
   } catch (err) {
+    console.error('Error fetching playback:', err);
     return new Response(JSON.stringify({ error: 'Failed to fetch playback or features' }), { status: 500 });
   }
 };
