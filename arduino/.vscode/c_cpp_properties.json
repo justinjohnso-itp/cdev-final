@@ -10,6 +10,7 @@
             "includePath": [
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/include",
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/src",
+                "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/FastLED/src",
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit NeoMatrix",
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit GFX Library",
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit BusIO",
@@ -42,6 +43,7 @@
                 "path": [
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/include",
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/src",
+                    "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/FastLED/src",
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit NeoMatrix",
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit GFX Library",
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit BusIO",
