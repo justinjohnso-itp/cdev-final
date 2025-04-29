@@ -3,6 +3,8 @@
 #include <ArduinoHttpClient.h>
 #include <ArduinoJson.h>
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_GFX.h> // For text scrolling (requires Adafruit_GFX library)
+#include <Adafruit_NeoMatrix.h> // For matrix text (optional, if you want to use Adafruit_NeoMatrix)
 #include "secrets.h" // Include the file with WiFi credentials
 
 // --- Configuration ---
@@ -15,9 +17,9 @@ const char* ssid = WIFI_SSID;
 const char* pass = WIFI_PASS;
 
 // Server Config (Update with your server's IP/hostname if needed)
-// For Astro API, use the correct port (default 4321) and your computer's IP address
-const char* serverAddress = "216.165.95.165"; // <-- Set to your computer's local IP
-const int serverPort = 4321; // Astro dev server default port
+// For Netlify, use the domain only (no protocol, no trailing slash)
+const char* serverAddress = "cdev-spotify-visualizer.netlify.app";
+const int serverPort = 443; // HTTPS port
 
 // Polling Interval (how often to check Spotify)
 const unsigned long pollingInterval = 5000; // 5 seconds
@@ -30,8 +32,13 @@ int status = WL_IDLE_STATUS; // WiFi status
 Adafruit_NeoPixel matrix(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // HTTP Client Objects
-WiFiClient wifiClient; // TCP client for HTTP
+WiFiSSLClient wifiClient; // Use SSL for HTTPS
 HttpClient httpClient = HttpClient(wifiClient, serverAddress, serverPort);
+
+// --- NeoMatrix Setup for text scrolling (top row) ---
+Adafruit_NeoMatrix textMatrix = Adafruit_NeoMatrix(32, 1, LED_PIN,
+  NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
+  NEO_GRB + NEO_KHZ800);
 
 // --- Function Declarations ---
 void connectToWiFi();
@@ -122,7 +129,7 @@ void fetchSpotifyData() {
 
   // Use Astro API endpoint
   String apiPath = "/api/device/data";
-  Serial.print("Requesting URL: http://");
+  Serial.print("Requesting URL: https://");
   Serial.print(serverAddress);
   Serial.print(":");
   Serial.print(serverPort);
@@ -176,28 +183,61 @@ void fetchSpotifyData() {
   }
 }
 
-// Placeholder for updating LEDs based on audio features - to be implemented later
+// Helper: Convert [r,g,b] to uint32_t color (for ArduinoJson 6+)
+uint32_t rgbToColor(const JsonArrayConst& arr) {
+  if (arr.size() != 3) return matrix.Color(255, 255, 255);
+  return matrix.Color(arr[0], arr[1], arr[2]);
+}
+
+// Helper: Get color from palette (wraps if idx >= size)
+uint32_t paletteColor(const JsonArrayConst& palette, int idx) {
+  if (palette.size() == 0) return matrix.Color(255, 255, 255);
+  int safeIdx = idx % palette.size();
+  return rgbToColor(palette[safeIdx].as<JsonArrayConst>());
+}
+
+// --- Update LEDs with palette and scrolling text ---
 void updateLEDs(const JsonDocument& doc) {
-  // Extract playback info
   bool isPlaying = doc["isPlaying"];
   long progress_ms = doc["progress_ms"] | 0;
-  long duration_ms = doc["duration_ms"] | 1; // Avoid division by zero
+  long duration_ms = doc["duration_ms"] | 1;
+  float progress = (float)progress_ms / (float)duration_ms;
   const char* trackName = doc["track"]["name"] | "";
   const char* artistName = doc["track"]["artists"][0] | "";
-  // Optionally, get albumArt and use a fixed color for now
-  // const char* albumArt = doc["track"]["albumArt"] | "";
+  
+  // Parse palette and dominantColor as JsonArrayConst
+  JsonArrayConst palette = doc["track"]["palette"].as<JsonArrayConst>();
+  JsonArrayConst dominant = doc["track"]["dominantColor"].as<JsonArrayConst>();
 
-  // --- Progress Bar Visualization ---
-  float progress = (float)progress_ms / (float)duration_ms;
-  int numLit = (int)(progress * LED_COUNT);
-  uint32_t color = matrix.Color(0, 150, 0); // Green for now, or set based on album art color
+  // --- 1. Scroll text on top row (row 0) ---
+  static int16_t scrollX = 32;
+  static unsigned long lastScroll = 0;
+  String scrollText = String(trackName) + " - " + String(artistName) + "   ";
+  textMatrix.setTextColor(rgbToColor(dominant));
+  textMatrix.fillScreen(0);
+  textMatrix.setCursor(scrollX, 0);
+  textMatrix.print(scrollText);
+  textMatrix.show();
+  if (millis() - lastScroll > 60) { // Adjust speed here
+    scrollX--;
+    if (scrollX < -scrollText.length() * 6) scrollX = 32;
+    lastScroll = millis();
+  }
 
-  // Light up LEDs for progress
-  for (int i = 0; i < LED_COUNT; i++) {
-    if (i < numLit) {
-      matrix.setPixelColor(i, color);
-    } else {
-      matrix.setPixelColor(i, 0);
+  // --- 2. Visualize progress bar and color waves on rows 1-7 ---
+  int barRows = 7; // Use rows 1-7 for visuals
+  int barCols = 32;
+  int numLit = (int)(progress * barCols);
+  for (int y = 1; y <= barRows; y++) {
+    for (int x = 0; x < barCols; x++) {
+      int ledIdx = y * barCols + x;
+      if (x < numLit) {
+        // Use palette color for each row
+        uint32_t color = paletteColor(palette, y-1);
+        matrix.setPixelColor(ledIdx, color);
+      } else {
+        matrix.setPixelColor(ledIdx, 0);
+      }
     }
   }
   matrix.show();
@@ -206,10 +246,6 @@ void updateLEDs(const JsonDocument& doc) {
   Serial.print("Track: "); Serial.println(trackName);
   Serial.print("Artist: "); Serial.println(artistName);
   Serial.print("Progress: "); Serial.print(progress * 100, 1); Serial.println("%");
-
-  // --- (Optional) Display track/artist name on LEDs ---
-  // For now, just print to Serial. LED text scrolling would require a font library and more code.
-  // You could implement a simple text scroller or use a library like Adafruit_GFX for this.
 }
 
 // Function to turn off all LEDs

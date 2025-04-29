@@ -10,6 +10,10 @@
             "includePath": [
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/include",
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/src",
+                "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit NeoMatrix",
+                "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit GFX Library",
+                "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit BusIO",
+                "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/Wire",
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/ArduinoJson/src",
                 "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/WiFiNINA/src",
                 "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/SPI",
@@ -31,7 +35,6 @@
                 "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/SNU/src",
                 "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/SSU/src",
                 "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/USBHost/src",
-                "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/Wire",
                 ""
             ],
             "browse": {
@@ -39,6 +42,10 @@
                 "path": [
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/include",
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/src",
+                    "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit NeoMatrix",
+                    "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit GFX Library",
+                    "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/Adafruit BusIO",
+                    "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/Wire",
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/ArduinoJson/src",
                     "/Users/justin/Library/CloudStorage/Dropbox/NYU/Semester 2 ('25 Spring)/Connected Devices & Networked Interaction/cdev-final/arduino/.pio/libdeps/nano33iot/WiFiNINA/src",
                     "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/SPI",
@@ -60,7 +67,6 @@
                     "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/SNU/src",
                     "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/SSU/src",
                     "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/USBHost/src",
-                    "/Users/justin/.platformio/packages/framework-arduino-samd/libraries/Wire",
                     ""
                 ]
             },

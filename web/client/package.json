@@ -11,6 +11,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
     "astro": "^5.7.8",
+    "colorthief": "^2.6.0",
+    "node-fetch": "2",
     "qrcode": "^1.5.4",
     "spotify-web-api-node": "^5.0.2"
   },

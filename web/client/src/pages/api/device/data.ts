@@ -1,3 +1,5 @@
+import ColorThief from 'colorthief';
+import fetch from 'node-fetch';
 import type { APIRoute } from 'astro';
 import { supabase } from '../../../supabase';
 import SpotifyWebApi from 'spotify-web-api-node';
@@ -67,6 +69,23 @@ export const GET: APIRoute = async () => {
     const timestamp = playback.body.timestamp;
     const isPlaying = playback.body.is_playing;
     const albumArt = track.album.images && track.album.images.length > 0 ? track.album.images[0].url : null;
+
+    // --- Album Art Color Extraction ---
+    let dominantColor = null;
+    let palette = null;
+    if (albumArt) {
+      try {
+        const response = await fetch(albumArt);
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        dominantColor = await ColorThief.getColor(buffer);
+        palette = await ColorThief.getPalette(buffer, 5);
+      } catch (e) {
+        dominantColor = null;
+        palette = null;
+      }
+    }
+
     return new Response(JSON.stringify({
       isPlaying,
       progress_ms,
@@ -78,6 +97,8 @@ export const GET: APIRoute = async () => {
         artists: track.artists.map((a: any) => a.name),
         album: track.album.name,
         albumArt,
+        dominantColor, // [r,g,b]
+        palette,       // array of [r,g,b]
       },
       device: playback.body.device ? {
         name: playback.body.device.name,
