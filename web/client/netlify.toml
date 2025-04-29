@@ -1,0 +1,12 @@
+[build]
+  command = "pnpm build"
+  publish = "dist"
+
+[dev]
+  command = "pnpm dev"
+
+[functions]
+  directory = ".netlify/functions"
+
+[functions."api/*"]
+  included_files = ["src/**"]

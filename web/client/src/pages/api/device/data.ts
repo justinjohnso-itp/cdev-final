@@ -6,8 +6,9 @@ const CLIENT_ID = import.meta.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = import.meta.env.SPOTIFY_CLIENT_SECRET;
 const REDIRECT_URI = import.meta.env.SPOTIFY_REDIRECT_URI;
 
+export const prerender = false;
+
 async function getLatestSpotifyTokens() {
-  // Get the most recently updated token
   const { data, error } = await supabase
     .from('spotify_tokens')
     .select('*')
@@ -35,13 +36,11 @@ export const GET: APIRoute = async () => {
     return new Response(JSON.stringify({ error: 'No Spotify tokens found' }), { status: 404 });
   }
   let { access_token, refresh_token, expires_at, spotify_user_id } = tokens;
-  // Check if token is expired
   if (new Date(expires_at) < new Date()) {
     try {
       const refreshed = await refreshAccessToken(refresh_token);
       access_token = refreshed.access_token;
       expires_at = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
-      // Update tokens in Supabase
       await supabase.from('spotify_tokens').update({
         access_token,
         expires_at,
@@ -59,57 +58,36 @@ export const GET: APIRoute = async () => {
   });
   try {
     const playback = await spotifyApi.getMyCurrentPlaybackState();
-    console.log('Spotify playback response:', JSON.stringify(playback.body, null, 2));
-    if (!playback.body || !playback.body.is_playing || !playback.body.item) {
+    if (!playback.body || !playback.body.item) {
       return new Response(JSON.stringify({ isPlaying: false }), { status: 200 });
     }
     const track = playback.body.item;
     const progress_ms = playback.body.progress_ms;
+    const duration_ms = track.duration_ms;
     const timestamp = playback.body.timestamp;
-    try {
-      const features = await spotifyApi.getAudioFeaturesForTrack(track.id);
-      return new Response(JSON.stringify({
-        isPlaying: true,
-        progress_ms,
-        timestamp,
-        track: {
-          id: track.id,
-          name: track.name,
-          artists: track.artists.map((a: any) => a.name),
-          album: track.album.name,
-        },
-        features: features.body,
-      }), { status: 200 });
-    } catch (featureErr: any) {
-      // If 403, return playback info with features: null
-      if (featureErr?.statusCode === 403) {
-        console.warn('Audio features forbidden for track:', track.id, track.name);
-        if (featureErr.body) {
-          console.warn('Spotify error body:', JSON.stringify(featureErr.body));
-        }
-        return new Response(JSON.stringify({
-          isPlaying: true,
-          progress_ms,
-          timestamp,
-          track: {
-            id: track.id,
-            name: track.name,
-            artists: track.artists.map((a: any) => a.name),
-            album: track.album.name,
-          },
-          features: null,
-          error: 'Audio features not available for this track.'
-        }), { status: 200 });
-      }
-      // Log all other errors
-      console.error('Error fetching audio features:', featureErr);
-      if (featureErr.body) {
-        console.error('Spotify error body:', JSON.stringify(featureErr.body));
-      }
-      return new Response(JSON.stringify({ error: 'Failed to fetch audio features' }), { status: 500 });
-    }
+    const isPlaying = playback.body.is_playing;
+    const albumArt = track.album.images && track.album.images.length > 0 ? track.album.images[0].url : null;
+    return new Response(JSON.stringify({
+      isPlaying,
+      progress_ms,
+      duration_ms,
+      timestamp,
+      track: {
+        id: track.id,
+        name: track.name,
+        artists: track.artists.map((a: any) => a.name),
+        album: track.album.name,
+        albumArt,
+      },
+      device: playback.body.device ? {
+        name: playback.body.device.name,
+        type: playback.body.device.type,
+        volume_percent: playback.body.device.volume_percent,
+      } : null,
+      shuffle_state: playback.body.shuffle_state,
+      repeat_state: playback.body.repeat_state,
+    }), { status: 200 });
   } catch (err) {
-    console.error('Error fetching playback:', err);
-    return new Response(JSON.stringify({ error: 'Failed to fetch playback or features' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Failed to fetch playback info' }), { status: 500 });
   }
 };

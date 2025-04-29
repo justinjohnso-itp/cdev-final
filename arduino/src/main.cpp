@@ -15,10 +15,9 @@ const char* ssid = WIFI_SSID;
 const char* pass = WIFI_PASS;
 
 // Server Config (Update with your server's IP/hostname if needed)
-// If running server locally, use your computer's local IP address
-// Find it using `ipconfig` (Windows) or `ifconfig` (macOS/Linux)
-const char* serverAddress = "192.168.1.100"; // <-- !!! REPLACE with your server's local IP !!!
-const int serverPort = 3000; // Port the Node.js server is running on
+// For Astro API, use the correct port (default 4321) and your computer's IP address
+const char* serverAddress = "216.165.95.165"; // <-- Set to your computer's local IP
+const int serverPort = 4321; // Astro dev server default port
 
 // Polling Interval (how often to check Spotify)
 const unsigned long pollingInterval = 5000; // 5 seconds
@@ -48,15 +47,15 @@ void setup() {
 
   // Initialize NeoPixel matrix
   matrix.begin();           // INITIALIZE NeoPixel matrix object (REQUIRED)
-  matrix.setBrightness(10); // Set BRIGHTNESS to 10% (26/255) for startup test
+  matrix.setBrightness(10); // Set BRIGHTNESS to 10/255 for startup
   matrix.show();            // Turn OFF all pixels initially
 
-  // Run startup animation
-  Serial.println("Running startup LED animation...");
-  colorWipe(matrix.Color(0, 0, 255), 50); // Blue wipe
-  colorWipe(matrix.Color(0, 0, 0), 50);   // Clear wipe
-  matrix.setBrightness(10); // Reset brightness to default for normal operation (or keep 26 if preferred)
-  matrix.show(); // Ensure matrix is off after animation
+  // Show a simple pattern for 2 seconds (all blue)
+  matrix.fill(matrix.Color(0, 0, 255));
+  matrix.show();
+  delay(2000);
+  matrix.clear();
+  matrix.show();
 
   // Attempt to connect to WiFi
   connectToWiFi();
@@ -116,13 +115,12 @@ void connectToWiFi() {
 void fetchSpotifyData() {
   Serial.println("\nFetching Spotify data...");
 
-  // Make sure we are connected before attempting the request
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi not connected. Skipping fetch.");
     return;
   }
 
-  // Construct the API path - *** CHANGED TO NEW DEVICE ENDPOINT ***
+  // Use Astro API endpoint
   String apiPath = "/api/device/data";
   Serial.print("Requesting URL: http://");
   Serial.print(serverAddress);
@@ -130,7 +128,6 @@ void fetchSpotifyData() {
   Serial.print(serverPort);
   Serial.println(apiPath);
 
-  // Start the GET request
   httpClient.beginRequest();
   int err = httpClient.get(apiPath);
   httpClient.endRequest();
@@ -138,41 +135,29 @@ void fetchSpotifyData() {
   if (err != 0) {
     Serial.print("HTTP GET request failed, error: ");
     Serial.println(err);
-    clearLEDs(); // Turn off LEDs on error
+    clearLEDs();
     return;
   }
 
-  // Get the HTTP status code
   int httpStatusCode = httpClient.responseStatusCode();
   Serial.print("HTTP Status Code: ");
   Serial.println(httpStatusCode);
 
-  // Get the response body
   String responseBody = httpClient.responseBody();
-  // Serial.println("Response Body:");
-  // Serial.println(responseBody); // Uncomment for debugging, can be large
+  Serial.println("Response Body:");
+  Serial.println(responseBody);
 
   if (httpStatusCode == 200) {
-    // Allocate JsonDocument. Adjust size as needed based on expected response size.
-    // Use https://arduinojson.org/v7/assistant/ to estimate size.
-    // Example: {"isPlaying":true,"features":{"id":"...","danceability":0.7,...}}
-    // Let's start with 1024, might need adjustment.
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, responseBody);
-
     if (error) {
       Serial.print("deserializeJson() failed: ");
       Serial.println(error.c_str());
-      clearLEDs(); // Turn off LEDs on JSON error
+      clearLEDs();
       return;
     }
-
-    // Check if music is playing
     bool isPlaying = doc["isPlaying"].as<bool>();
-
     if (isPlaying) {
-      // Extract the features object
-      // Note: We pass the whole doc, updateLEDs will extract features
       Serial.println("Music is playing. Updating LEDs.");
       updateLEDs(doc);
     } else {
@@ -180,50 +165,51 @@ void fetchSpotifyData() {
       clearLEDs();
     }
   } else if (httpStatusCode == 401) {
-      Serial.println("Server returned 401 Unauthorized. Check server logs. Is user logged in?");
-      clearLEDs();
+    Serial.println("Server returned 401 Unauthorized. Check server logs. Is user logged in?");
+    clearLEDs();
   } else {
     Serial.print("HTTP request failed with code: ");
     Serial.println(httpStatusCode);
     Serial.println("Response: ");
-    Serial.println(responseBody); // Print error response body
-    clearLEDs(); // Turn off LEDs on non-200 response
+    Serial.println(responseBody);
+    clearLEDs();
   }
 }
 
 // Placeholder for updating LEDs based on audio features - to be implemented later
-void updateLEDs(const JsonDocument& doc) { // Takes the whole doc now
-  // Extract features object
-  JsonObjectConst features = doc["features"]; // Corrected: Use JsonObjectConst for read-only access
+void updateLEDs(const JsonDocument& doc) {
+  // Extract playback info
+  bool isPlaying = doc["isPlaying"];
+  long progress_ms = doc["progress_ms"] | 0;
+  long duration_ms = doc["duration_ms"] | 1; // Avoid division by zero
+  const char* trackName = doc["track"]["name"] | "";
+  const char* artistName = doc["track"]["artists"][0] | "";
+  // Optionally, get albumArt and use a fixed color for now
+  // const char* albumArt = doc["track"]["albumArt"] | "";
 
-  if (features.isNull()) {
-      Serial.println("Features object is null in JSON response.");
-      clearLEDs();
-      return;
+  // --- Progress Bar Visualization ---
+  float progress = (float)progress_ms / (float)duration_ms;
+  int numLit = (int)(progress * LED_COUNT);
+  uint32_t color = matrix.Color(0, 150, 0); // Green for now, or set based on album art color
+
+  // Light up LEDs for progress
+  for (int i = 0; i < LED_COUNT; i++) {
+    if (i < numLit) {
+      matrix.setPixelColor(i, color);
+    } else {
+      matrix.setPixelColor(i, 0);
+    }
   }
-
-  Serial.println("Updating LEDs based on features...");
-
-  // Example: Map energy to brightness, danceability to color pattern speed, etc.
-  float energy = features["energy"].as<float>();
-  float danceability = features["danceability"].as<float>();
-  float tempo = features["tempo"].as<float>();
-  float valence = features["valence"].as<float>(); // Musical positiveness (0.0-1.0)
-
-  // Simple example: set all LEDs to a color based on valence and brightness based on energy
-  int brightness = map(energy * 100, 0, 100, 10, 200); // Map energy (0-1) to brightness (10-200)
-  // Map valence (0-1) to hue (e.g., 0=Red, 120=Green, 240=Blue in HSV)
-  // Let's map valence to Red (low valence) -> Green (mid) -> Blue (high valence)
-  // Hue range is 0-65535 for Adafruit_NeoPixel HSV
-  uint16_t hue = map(valence * 100, 0, 100, 0, 65535 / 3 * 2); // Map 0-1 to Red->Green->Blue range
-
-  Serial.print("Energy: "); Serial.print(energy);
-  Serial.print(", Valence: "); Serial.print(valence);
-  Serial.print(" -> Hue: "); Serial.print(hue);
-  Serial.print(", Brightness: "); Serial.println(brightness);
-
-  matrix.fill(matrix.ColorHSV(hue, 255, brightness)); // Full saturation
   matrix.show();
+
+  // --- Serial Output for Debugging ---
+  Serial.print("Track: "); Serial.println(trackName);
+  Serial.print("Artist: "); Serial.println(artistName);
+  Serial.print("Progress: "); Serial.print(progress * 100, 1); Serial.println("%");
+
+  // --- (Optional) Display track/artist name on LEDs ---
+  // For now, just print to Serial. LED text scrolling would require a font library and more code.
+  // You could implement a simple text scroller or use a library like Adafruit_GFX for this.
 }
 
 // Function to turn off all LEDs
