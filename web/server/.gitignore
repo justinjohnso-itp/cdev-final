@@ -1,4 +1,0 @@
-*.env
-node_modules/
-db/*.db
-db/*.db-journal

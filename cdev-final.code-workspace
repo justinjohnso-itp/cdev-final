@@ -13,11 +13,9 @@
 			"path": "arduino"
 		},
 		{
-			"name": "server",
 			"path": "web/server"
 		},
 		{
-			"name": "client",
 			"path": "web/client"
 		}
 	],
