@@ -44,7 +44,7 @@ exports.callback = async (req, res) => {
   req.session.userId = userId;
 
   // Redirect back to the client app
-  res.redirect(process.env.CLIENT_URL || 'http://localhost:4321');
+  res.redirect(process.env.CLIENT_URL || 'http://127.0.0.1:4321');
 };
 ```
 
