@@ -1,10 +1,10 @@
+#include <Adafruit_NeoMatrix.h> // For 2D matrix text and pixel control
 #include <Arduino.h>
 #include <WiFiNINA.h>
 #include <ArduinoHttpClient.h>
 #include <ArduinoJson.h>
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_GFX.h> // For text scrolling (requires Adafruit_GFX library)
-#include <Adafruit_NeoMatrix.h> // For matrix text (optional, if you want to use Adafruit_NeoMatrix)
 #include "secrets.h" // Include the file with WiFi credentials
 
 // --- Configuration ---
@@ -28,17 +28,15 @@ unsigned long lastPollTime = 0;
 // --- Global Variables ---
 int status = WL_IDLE_STATUS; // WiFi status
 
-// NeoPixel matrix Object
-Adafruit_NeoPixel matrix(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+// Replace Adafruit_NeoPixel matrix with Adafruit_NeoMatrix for 8x32 display
+// Adafruit_NeoPixel matrix(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(32, 8, LED_PIN,
+  NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
+  NEO_GRB + NEO_KHZ800);
 
 // HTTP Client Objects
 WiFiSSLClient wifiClient; // Use SSL for HTTPS
 HttpClient httpClient = HttpClient(wifiClient, serverAddress, serverPort);
-
-// --- NeoMatrix Setup for text scrolling (top row) ---
-Adafruit_NeoMatrix textMatrix = Adafruit_NeoMatrix(32, 1, LED_PIN,
-  NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
-  NEO_GRB + NEO_KHZ800);
 
 // --- Function Declarations ---
 void connectToWiFi();
@@ -46,6 +44,7 @@ void fetchSpotifyData();
 void updateLEDs(const JsonDocument& features);
 void clearLEDs();
 void colorWipe(uint32_t color, int wait); // Added for startup animation
+void runMatrixOrientationTest();
 
 // --- Setup Function ---
 void setup() {
@@ -63,6 +62,9 @@ void setup() {
   delay(2000);
   matrix.clear();
   matrix.show();
+
+  // --- Run orientation and text test before WiFi/Serial ---
+  runMatrixOrientationTest();
 
   // Attempt to connect to WiFi
   connectToWiFi();
@@ -196,6 +198,32 @@ uint32_t paletteColor(const JsonArrayConst& palette, int idx) {
   return rgbToColor(palette[safeIdx].as<JsonArrayConst>());
 }
 
+// Custom mapping for 8x32 snaked, chunked matrix (8x8 panels)
+int mapXY(int x, int y) {
+  // Each chunk is 8 columns wide
+  int chunk = x / 8;
+  int chunk_x = x % 8;
+  int base = chunk * 64; // 8 cols * 8 rows = 64 LEDs per chunk
+
+  // Within each chunk, columns snake: even col goes down, odd goes up
+  int col = chunk_x;
+  int row = y;
+  int idx;
+  if (col % 2 == 0) {
+    // Even column: top to bottom
+    idx = base + col * 8 + row;
+  } else {
+    // Odd column: bottom to top
+    idx = base + col * 8 + (7 - row);
+  }
+  return idx;
+}
+
+// Helper: Set a pixel using the custom mapping
+void setMatrixPixel(int x, int y, uint32_t color) {
+  matrix.setPixelColor(mapXY(x, y), color);
+}
+
 // --- Update LEDs with palette and scrolling text ---
 void updateLEDs(const JsonDocument& doc) {
   bool isPlaying = doc["isPlaying"];
@@ -209,43 +237,37 @@ void updateLEDs(const JsonDocument& doc) {
   JsonArrayConst palette = doc["track"]["palette"].as<JsonArrayConst>();
   JsonArrayConst dominant = doc["track"]["dominantColor"].as<JsonArrayConst>();
 
-  // --- 1. Scroll text on top row (row 0) ---
+  // --- 1. Draw scrolling text on row 0 of the main matrix ---
   static int16_t scrollX = 32;
   static unsigned long lastScroll = 0;
   String scrollText = String(trackName) + " - " + String(artistName) + "   ";
-  textMatrix.setTextColor(rgbToColor(dominant));
-  textMatrix.fillScreen(0);
-  textMatrix.setCursor(scrollX, 0);
-  textMatrix.print(scrollText);
-  textMatrix.show();
-  if (millis() - lastScroll > 60) { // Adjust speed here
-    scrollX--;
-    if (scrollX < -scrollText.length() * 6) scrollX = 32;
-    lastScroll = millis();
-  }
 
-  // --- 2. Visualize progress bar and color waves on rows 1-7 ---
+  // Clear the matrix before drawing
+  matrix.clear();
+
+  // Draw progress bar and color waves on rows 1-7 using custom mapping
   int barRows = 7; // Use rows 1-7 for visuals
   int barCols = 32;
   int numLit = (int)(progress * barCols);
   for (int y = 1; y <= barRows; y++) {
     for (int x = 0; x < barCols; x++) {
-      int ledIdx = y * barCols + x;
       if (x < numLit) {
         // Use palette color for each row
         uint32_t color = paletteColor(palette, y-1);
-        matrix.setPixelColor(ledIdx, color);
+        setMatrixPixel(x, y, color);
       } else {
-        matrix.setPixelColor(ledIdx, 0);
+        setMatrixPixel(x, y, 0);
       }
     }
   }
-  matrix.show();
 
   // --- Serial Output for Debugging ---
   Serial.print("Track: "); Serial.println(trackName);
   Serial.print("Artist: "); Serial.println(artistName);
   Serial.print("Progress: "); Serial.print(progress * 100, 1); Serial.println("%");
+
+  // Show the result
+  matrix.show();
 }
 
 // Function to turn off all LEDs
@@ -263,4 +285,27 @@ void colorWipe(uint32_t color, int wait) {
     matrix.show();
     delay(wait);
   }
+}
+
+void runMatrixOrientationTest() {
+  // Fill the matrix pixel by pixel, starting at (0,0) and progressing in logical order
+  matrix.clear();
+  matrix.setBrightness(100);
+  for (int y = 0; y < 8; y++) {
+    for (int x = 0; x < 32; x++) {
+      setMatrixPixel(x, y, matrix.Color(255, 0, 0));
+      matrix.show();
+      delay(20); // Short delay to see the fill order
+    }
+  }
+  delay(1000);
+  matrix.clear();
+  matrix.show();
+  // Draw green at (0,0), blue at (31,7) for reference
+  setMatrixPixel(0, 0, matrix.Color(0,255,0));
+  setMatrixPixel(31, 7, matrix.Color(0,0,255));
+  matrix.show();
+  delay(2000);
+  matrix.clear();
+  matrix.show();
 }
