@@ -10,3 +10,6 @@
 
 [functions."api/*"]
   included_files = ["src/**"]
+[functions."triggerData"]
+  # Scheduled function to periodically trigger the data endpoint
+  schedule = "*/1 * * * *"  # run every minute
