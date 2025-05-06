@@ -1,98 +1,95 @@
 ---
-title: "Dev Log: Spotify Visualizer Gets an MQTT Upgrade, New Features, and a UI!"
+title: "Spotify LED Visualizer Dev Log 3: MQTT, New Features, and a UI!"
 date: 2025-05-06
 tags: ["spotify", "led visualizer", "mqtt", "arduino", "nodejs", "astro", "iot", "devlog"]
 ---
 
-What a productive day for the Spotify LED Visualizer project! We've made significant strides in refactoring core components, addressing some pesky bugs, and rolling out exciting new features for both the Arduino-powered display and the web client.
+Alright, it's May 6th, and it's been a pretty packed day working on the Spotify LED Visualizer. After hitting that wall with the Spotify API deprecating audio features (see Dev Log 2), I've been focusing on making the most of what data I *can* get. Today was all about a major refactor and adding some much-needed enhancements to both the Arduino display and the web client.
 
-## The Big Leap: HTTP to MQTT for Real-Time Responsiveness
+## Moving to MQTT: No More Polling!
 
-The most significant architectural enhancement today was migrating our data flow from an HTTP polling mechanism to a more robust and efficient **MQTT-based architecture**.
+The biggest change today was ditching the old HTTP polling system. If you remember from Dev Log 1, the Arduino was constantly bugging the server for updates. It worked, but it felt clunky and wasn't great for instant updates when a song changed.
 
-Previously, the Arduino microcontroller would repeatedly poll a server endpoint to fetch the latest Spotify track information. While functional, this approach wasn't optimal for real-time updates.
+So, I decided to switch things over to **MQTT**. Here's the new setup:
+*   **Arduino Side (`main.cpp`):** I rewrote a good chunk of the Arduino code to use the `ArduinoMqttClient` library. Now, instead of asking, it just listens on an MQTT topic (`conndev/spotify-visualizer`) for new song data.
+*   **Server Side (`web/server/index.js`):** The Node.js server is now an MQTT publisher. It still does the job of grabbing the current song from Spotify (using Supabase for the token management, which is way better than my old file-based thing), but then it blasts that info out over MQTT.
 
-The new, improved system works as follows:
-*   The **Arduino sketch (`main.cpp`)** has been refactored to utilize the `ArduinoMqttClient` library. It now subscribes to a dedicated MQTT topic (`conndev/spotify-visualizer`), listening for incoming messages.
-*   Our **Node.js server (`web/server/index.js`)** now takes on the role of fetching the currently playing song data from the Spotify API (securely managing API tokens via Supabase to avoid exposing sensitive credentials) and then *publishing* this data to the aforementioned MQTT topic.
-
-This architectural shift ensures that the Arduino receives updates almost instantaneously when a song changes or playback state (play/pause) is altered. The result is a significantly more responsive and efficient visualizer, enhancing the user experience.
+The beauty of this is that the Arduino gets updates pretty much the instant they happen. Change a song, hit pause – the LEDs should react way faster now. This should make the whole thing feel a lot more responsive.
 
 ## Arduino Enhancements: Finer Control and Smoother Visuals
 
-With the MQTT backbone firmly in place, we dedicated effort to refining the Arduino-powered LED matrix display:
+With MQTT handling the data flow, I could finally spend some time sprucing up what's actually showing on the LED matrix.
 
-### 1. Custom Font for Enhanced Readability
-To better accommodate longer track names on our 32x8 LED matrix, we've integrated a **compact custom font (`5x5_6pt7b.h`)**. This involved:
-*   Adding the new font file to the Arduino project's include directory.
-*   Modifying `main.cpp` to leverage `matrix.setFont()` for applying the custom font and `matrix.getTextBounds()` for precise text width calculations—essential for smooth, accurate scrolling animations.
-*   Performing minor but necessary C++ identifier renaming within the font file itself, as some auto-generated names were incompatible.
+### 1. A New Font for Tighter Spaces
+That old default font was okay, but track names can get pretty long, and on a 32x8 matrix, every pixel counts. I found a more **compact custom font (`5x5_6pt7b.h`)** that looked like it would fit better. Getting it working involved:
+*   Dropping the new font file into the Arduino project's include directory.
+*   Tweaking `main.cpp` to use `matrix.setFont()` and `matrix.getTextBounds()`. The `getTextBounds` part is super important for figuring out exactly how wide the text is, which is key for making the scroll look smooth.
+*   I also had to rename a few things inside the font file itself. Some of the C++ names it came with were a bit wonky and didn't compile.
 
-### 2. Engaging Idle Animation: A Dynamic Sine Wave
-When Spotify is not actively playing music, the matrix now displays a **dynamic scrolling sine wave animation**. This provides clear visual feedback that the device is operational and awaiting data, rather than appearing inactive or off.
+### 2. Something to Look at When Nothing's Playing: The Sine Wave
+Previously, if Spotify wasn't playing, the display was just... off. Not very exciting, and it didn't tell you if the thing was even working. So, I added an **idle animation: a scrolling sine wave**.
 
-*How it works:*
-*   The animation is generated by calculating the Y position for each column (X position) of the LED matrix using a sine function (`sin()`).
-*   A `waveOffset` variable is incrementally adjusted in each animation frame, creating the illusion of the wave scrolling horizontally across the display.
-*   To add more visual interest, the color of the sine wave gracefully cycles through the hue spectrum (using `matrix.ColorHSV()`), creating a subtle rainbow effect over time.
-*   The animation runs at a controlled frame rate using a small `delay()` to manage its speed.
+*How it works (or how I think it works):*
+*   For every column on the LED matrix, I calculate a Y position using `sin()`.
+*   There's a `waveOffset` that I change a little bit each frame, which makes the wave look like it's moving across the screen.
+*   To make it a bit fancier, the color of the wave slowly cycles through a rainbow using `matrix.ColorHSV()`.
+*   A little `delay()` keeps the animation speed in check.
 
-This not only makes the visualizer more engaging during periods of inactivity but also serves as a useful diagnostic indicator.
+Now, even if there's no music, there's some life in the display, and it's a good sign that it's alive and waiting for data.
 
-### 3. Potentiometer-Controlled Scroll Speed: Tailoring the Experience
-Empowering users with more granular control, a potentiometer connected to an analog input pin (`A0`) now allows for **on-the-fly adjustment of the scrolling text speed** when a track is playing. This allows users to tailor the visual experience to their preference, whether they prefer a leisurely crawl or a speedier ticker.
+### 3. You Control the Scroll Speed!
+I thought it'd be cool to let whoever's looking at it have some control. So, I hooked up a potentiometer to analog pin `A0`. Now, you can **tweak the scroll speed of the track info** in real-time.
 
-*Implementation Details:*
-*   The Arduino firmware continuously reads the analog value from the potentiometer (which ranges from 0 to 1023).
-*   This raw analog value is then mapped to a more practical range suitable for controlling animation delay (e.g., 20ms to 200ms) using the `map()` function. A lower delay results in faster scrolling.
-*   The `currentScrollDelay` variable, derived from the potentiometer's reading, is then used in the `delay()` function within the text scrolling loop, dynamically altering the speed at which the track information glides across the LED matrix.
+*The nitty-gritty:*
+*   The Arduino reads the potentiometer value (0-1023).
+*   I use the `map()` function to change that raw value into a delay amount (something like 20ms to 200ms). Less delay means faster scrolling.
+*   This `currentScrollDelay` then gets used in the text scrolling loop.
 
-This feature adds a welcome layer of personalization to the visualizer.
+It's a small touch, but I like giving people options.
 
-### 4. Investigating a Display Flashing Anomaly (Ongoing)
-We are actively working to resolve a persistent issue where the LED matrix display **flashes momentarily when transitioning between the scrolling text (active playback) and the idle animation**.
-*   Our latest diagnostic step involved ensuring `matrix.fillScreen(0)` (to clear the display buffer) is explicitly called immediately before initiating the idle animation sequence.
-*   Previous attempts included removing potentially redundant `clearMatrix()` and `matrix.show()` calls from the MQTT message handler and WiFi disconnection logic. This particular challenge remains under investigation, and we're committed to finding a solution.
+### 4. That Annoying Flash (Still Chasing This One)
+There's still one gremlin in the Arduino code: the display **flashes for a split second when it switches from scrolling a song title to the idle animation (and vice-versa)**. It's driving me a bit nuts.
+*   My latest attempt to fix it was to make sure I'm calling `matrix.fillScreen(0)` (to clear everything) right before the idle animation starts.
+*   I'd already tried removing some `clearMatrix()` and `matrix.show()` calls that I thought might be redundant. Still no luck. This one's still on the to-do list.
 
-## Crafting a Custom Enclosure: From Digital Model to Physical Form
+## Making it Look Less Like a Science Project: The Enclosure
+Software is great, but I also wanted this thing to look decent, not just like a pile of wires. So, I spent some time designing and putting together a custom enclosure.
 
-Beyond the software, attention was also given to the physical presentation of the Spotify LED Visualizer. A custom enclosure has been designed and fabricated to neatly house the electronics and enhance the overall aesthetic.
+*   **The Idea:** I wanted something clean and simple that wouldn't look out of place on a desk.
+*   **The Bits and Pieces:**
+    *   **Acrylic Sandwich:** The LED matrix panel is sandwiched between two pieces of acrylic. This protects the LEDs and also diffuses the light a bit, which makes the text easier to read and a bit softer on the eyes.
+    *   **Laser-Cut Plywood Stand:** The main body is a stand I laser-cut from plywood. It holds the acrylic panel and has space inside to hide the Arduino and wires.
 
-*   **Design Approach:** The enclosure (a 3D model of which is pictured below/referenced) aims for a clean, minimalist look, suitable for a desk or shelf.
-*   **Materials & Fabrication:**
-    *   **Acrylic Sandwich:** Two precisely cut pieces of acrylic are used to sandwich the LED matrix panel. This not only protects the LEDs but also acts as a diffuser, softening the light output for a more pleasant visual effect and better text legibility.
-    *   **Laser-Cut Plywood Stand:** The core structure of the enclosure is a laser-cut plywood stand. This provides a stable base for the acrylic-sandwiched LED panel and includes space to discreetly house the Arduino microcontroller and other necessary electronics.
+It definitely looks more like a "thing" now, rather than just a bunch of electronics.
 
-This custom-designed enclosure elevates the project from a bare-bones electronics setup to a more polished and integrated device.
+## Giving the Web Client Some Love: The "Now Playing" Page
+The web client (the Astro site) was pretty barebones. It just had the login link. I decided it needed a proper **"Now Playing" section** so you could actually see what Spotify was, well, playing, without having to open the Spotify app.
 
-## Web Client Upgrade: "Now Playing" Information Hub
-
-The web client, built with the Astro framework, received a significant feature enhancement. The main page (`index.astro`) now proudly features a **"Now Playing" section**, offering a comprehensive overview of the user's current Spotify listening session.
-
-Key steps in this implementation included:
-1.  **New API Endpoint Creation**: We developed a new server-side API route at `/web/client/src/pages/api/spotify/current.ts`. This endpoint is responsible for fetching the latest playback state from Spotify, including robust handling for refreshing access tokens when they expire.
-2.  **Frontend Integration**: The `index.astro` page was updated to:
-    *   Fetch data from this new API endpoint during server-side rendering (SSR).
-    *   Clearly display:
-        *   Album Art (if available)
+Here’s what went into that:
+1.  **New API Route:** I built a new API endpoint at `/web/client/src/pages/api/spotify/current.ts`. This guy is responsible for fetching all the current playback info from Spotify and dealing with refreshing the access token if it's expired.
+2.  **Astro Page Update**: I updated the main `index.astro` page to:
+    *   Call this new API when the page loads (it does this on the server before sending the page to the browser).
+    *   Display all the good stuff:
+        *   Album Art
         *   Track Name
         *   Artist(s)
         *   Album Name
-        *   A dynamic progress bar visually representing the current playback time against the total track duration.
-        *   The name and type of the device currently playing the music (e.g., "Living Room Speaker"), along with its volume percentage.
-    *   The interface has been styled with a clean, dark theme, using Spotify's signature green as an accent color for a polished look and feel.
+        *   A progress bar showing how far into the song you are.
+        *   What device is playing (e.g., "My Echo Dot") and its volume.
+    *   I also styled it up a bit with a dark theme and some Spotify green. Looks pretty slick, if I do say so myself.
+    *   **Update (Post-Initial Write-up):** I then refactored this page to fetch data client-side every second using `setInterval` and JavaScript to update the DOM directly. This makes the progress bar and track info update in real-time without full page reloads, which is much cooler. I also had to fix an issue where the fetch URL was hardcoded to `localhost` for deployed builds; it now correctly uses `Astro.site` or the production URL.
 
-This addition provides a much richer user experience, allowing for a quick and convenient way to check playback details without needing to switch to the Spotify application itself.
+This makes the web client way more useful.
 
-## Minor Refinements and Housekeeping
-In addition to these primary developments, we performed some minor housekeeping by removing an obsolete Astro API route (`/web/client/src/pages/api/device/data.ts`) and its corresponding Netlify function configuration, keeping the codebase lean.
+## Tidying Up
+I also did a little spring cleaning and got rid of the old `/web/client/src/pages/api/device/data.ts` API route. That was from the pre-MQTT days and isn't needed anymore. Also zapped the old Netlify function config for it. Keep it clean!
 
-## Next Steps: Testing and Bug Squashing
-It's been a highly productive development cycle! Our immediate priorities moving forward are:
-*   **Resolve the display flashing issue** on the Arduino to ensure seamless visual transitions.
-*   **Conduct comprehensive end-to-end testing** across the entire system. This is a critical phase to validate the stability and correctness of all new integrations, with a particular focus on:
-    *   The reliability and performance of the MQTT communication channel under various conditions.
-    *   The responsiveness and accuracy of the potentiometer-controlled scroll speed.
-    *   The overall robustness and error handling of both the server and client applications after these significant architectural and feature changes.
+## What's Next?
+So, a pretty good burst of progress. The main things still on my plate are:
+*   **Nail down that flashing issue** on the Arduino. It's subtle, but it bugs me.
+*   **Serious end-to-end testing.** Now that so much has changed, I need to really hammer on it:
+    *   Make sure MQTT is solid.
+    *   Check the potentiometer scroll speed is smooth and responsive.
+    *   Just generally try to break the server and client to see what shakes loose.
 
-Stay tuned for further updates as we continue to enhance the Spotify LED Visualizer!
+More updates to come as I (hopefully) squash the remaining bugs and polish it up!
