@@ -2,8 +2,12 @@
 // Fetch data from the new API route
 let songData = null;
 let errorMessage = null;
+const siteUrl = Astro.site ? Astro.site.toString().replace(/\/$/, '') : 'http://localhost:4321'; // Fallback for dev
+
 try {
-  const response = await fetch('/api/spotify/current');
+  const fetchUrl = `${siteUrl}/api/spotify/current`;
+  // console.log(`Fetching from URL: ${fetchUrl}`); // Optional: for debugging
+  const response = await fetch(fetchUrl);
   if (response.ok) {
     songData = await response.json();
   } else {
