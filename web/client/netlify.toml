@@ -4,9 +4,3 @@
 
 [dev]
   command = "pnpm dev"
-
-[functions]
-  directory = ".netlify/functions"
-
-[functions."api/*"]
-  included_files = ["src/**"]
