@@ -63,107 +63,6 @@ let initialErrorMessage = errorMessage;
         }
         .time-display { display: flex; justify-content: space-between; font-size: 0.9em; color: #b3b3b3; }
     </style>
-    <script define:vars={{ initialSongData, initialErrorMessage, siteUrl }}>
-        let songData = initialSongData;
-        let errorMessage = initialErrorMessage;
-        const songInfoDiv = document.getElementById('song-info-container');
-        const errorDisplayP = document.getElementById('error-display');
-        const notPlayingP = document.getElementById('not-playing-display');
-        const progressBar = document.getElementById('progress-bar');
-        const currentTimeSpan = document.getElementById('current-time');
-        const totalTimeSpan = document.getElementById('total-time');
-        const albumArtImg = document.getElementById('album-art');
-        const trackNameP = document.getElementById('track-name');
-        const artistNameP = document.getElementById('artist-name');
-        const albumNameP = document.getElementById('album-name');
-        const deviceNameP = document.getElementById('device-name');
-
-        const formatMillis = (ms) => {
-            if (typeof ms !== 'number' || isNaN(ms)) return 'N/A';
-            const totalSeconds = Math.floor(ms / 1000);
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-        };
-
-        function updateDisplay() {
-            if (errorMessage) {
-                if (errorDisplayP) {
-                    errorDisplayP.textContent = errorMessage;
-                    errorDisplayP.style.display = 'block'; // Ensure error message is visible
-                }
-                if (songInfoDiv) songInfoDiv.style.display = 'none';
-                if (notPlayingP) notPlayingP.style.display = 'none';
-                return;
-            }
-
-            if (errorDisplayP) errorDisplayP.style.display = 'none';
-
-            if (songData && songData.isPlaying) {
-                if (songInfoDiv) songInfoDiv.style.display = 'block';
-                if (notPlayingP) notPlayingP.style.display = 'none';
-
-                if (albumArtImg && songData.track.albumArtUrl) {
-                    albumArtImg.src = songData.track.albumArtUrl;
-                    albumArtImg.alt = `Album art for ${songData.track.album}`;
-                    albumArtImg.style.display = 'block';
-                } else if (albumArtImg) {
-                    albumArtImg.style.display = 'none';
-                }
-                if (trackNameP) trackNameP.innerHTML = `<strong>Track:</strong> ${songData.track.name}`;
-                if (artistNameP) artistNameP.innerHTML = `<strong>Artist(s):</strong> ${songData.track.artists.join(', ')}`;
-                if (albumNameP) albumNameP.innerHTML = `<strong>Album:</strong> ${songData.track.album}`;
-                
-                if (currentTimeSpan) currentTimeSpan.textContent = formatMillis(songData.progress_ms);
-                if (totalTimeSpan) totalTimeSpan.textContent = formatMillis(songData.duration_ms);
-                if (progressBar) progressBar.style.width = `${(songData.progress_ms / songData.duration_ms) * 100}%`;
-
-                if (songData.device) {
-                    if (deviceNameP) deviceNameP.innerHTML = `<strong>Playing on:</strong> ${songData.device.name} (${songData.device.type}) - Vol: ${songData.device.volume_percent}%`;
-                } else if (deviceNameP) {
-                    deviceNameP.textContent = '';
-                }
-
-            } else if (songData && !songData.isPlaying) {
-                if (songInfoDiv) songInfoDiv.style.display = 'none';
-                if (notPlayingP) {
-                    notPlayingP.textContent = songData.message || "Nothing is currently playing, or your Spotify app is not active.";
-                    notPlayingP.style.display = 'block';
-                }
-            } else {
-                if (songInfoDiv) songInfoDiv.style.display = 'none';
-                if (notPlayingP) {
-                    notPlayingP.textContent = "Loading song data or no song data available...";
-                    notPlayingP.style.display = 'block';
-                }
-            }
-        }
-
-        async function fetchData() {
-            try {
-                const fetchUrl = `${siteUrl}/api/spotify/current`;
-                const response = await fetch(fetchUrl);
-                if (response.ok) {
-                    songData = await response.json();
-                    errorMessage = null;
-                } else {
-                    const errorJson = await response.json();
-                    errorMessage = `Error fetching song data: ${errorJson.error || response.statusText}`;
-                    songData = null;
-                }
-            } catch (err) {
-                errorMessage = `Failed to fetch: ${err.message}`;
-                songData = null;
-            }
-            updateDisplay();
-        }
-
-        // Initial display update
-        updateDisplay();
-
-        // Fetch data every second
-        setInterval(fetchData, 1000);
-    </script>
 </head>
 <body>
     <div class="container">
@@ -188,11 +87,134 @@ let initialErrorMessage = errorMessage;
             <p id="device-name"></p>
         </div>
         
-        <p id="not-playing-display" class="not-playing"></p>
+        <p id="not-playing-display" class="not-playing" style="display: block;">Loading initial content...</p>
 
         <p style="text-align:center; margin-top: 20px;">
             <a href="/api/auth/login" style="color: #1DB954; text-decoration: none; padding: 10px 15px; border: 1px solid #1DB954; border-radius: 20px;">Login with Spotify</a>
         </p>
     </div>
+
+    <script define:vars={{ initialSongData, initialErrorMessage, siteUrl }}>
+        let songData = typeof initialSongData !== 'undefined' ? initialSongData : null;
+        let errorMessage = typeof initialErrorMessage !== 'undefined' ? initialErrorMessage : null;
+        
+        const songInfoDiv = document.getElementById('song-info-container');
+        const errorDisplayP = document.getElementById('error-display');
+        const notPlayingP = document.getElementById('not-playing-display');
+        const progressBar = document.getElementById('progress-bar');
+        const currentTimeSpan = document.getElementById('current-time');
+        const totalTimeSpan = document.getElementById('total-time');
+        const albumArtImg = document.getElementById('album-art');
+        const trackNameP = document.getElementById('track-name');
+        const artistNameP = document.getElementById('artist-name');
+        const albumNameP = document.getElementById('album-name');
+        const deviceNameP = document.getElementById('device-name');
+
+        if (!songInfoDiv || !errorDisplayP || !notPlayingP) {
+            console.error('CRITICAL: One or more display elements are missing from the DOM.');
+            // Attempt to show an error directly in the body if key elements are missing
+            const bodyError = document.createElement('p');
+            bodyError.style.color = 'red';
+            bodyError.textContent = 'Error: Page UI elements missing. Cannot display content.';
+            document.body.insertBefore(bodyError, document.body.firstChild);
+        }
+
+        const formatMillis = (ms) => {
+            if (typeof ms !== 'number' || isNaN(ms)) return 'N/A';
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        };
+
+        function updateDisplay() {
+            try {
+                if (errorMessage) {
+                    if (errorDisplayP) {
+                        errorDisplayP.textContent = errorMessage;
+                        errorDisplayP.style.display = 'block';
+                    }
+                    if (songInfoDiv) songInfoDiv.style.display = 'none';
+                    if (notPlayingP) notPlayingP.style.display = 'none'; // Also hide notPlayingP
+                    return;
+                }
+
+                if (errorDisplayP) errorDisplayP.style.display = 'none';
+
+                if (songData && songData.isPlaying) {
+                    if (songInfoDiv) songInfoDiv.style.display = 'block';
+                    if (notPlayingP) notPlayingP.style.display = 'none';
+
+                    if (albumArtImg && songData.track.albumArtUrl) {
+                        albumArtImg.src = songData.track.albumArtUrl;
+                        albumArtImg.alt = `Album art for ${songData.track.album}`;
+                        albumArtImg.style.display = 'block';
+                    } else if (albumArtImg) {
+                        albumArtImg.style.display = 'none';
+                    }
+                    if (trackNameP) trackNameP.innerHTML = `<strong>Track:</strong> ${songData.track.name}`;
+                    if (artistNameP) artistNameP.innerHTML = `<strong>Artist(s):</strong> ${songData.track.artists.join(', ')}`;
+                    if (albumNameP) albumNameP.innerHTML = `<strong>Album:</strong> ${songData.track.album}`;
+                    
+                    if (currentTimeSpan) currentTimeSpan.textContent = formatMillis(songData.progress_ms);
+                    if (totalTimeSpan) totalTimeSpan.textContent = formatMillis(songData.duration_ms);
+                    if (progressBar) progressBar.style.width = `${(songData.progress_ms / songData.duration_ms) * 100}%`;
+
+                    if (songData.device) {
+                        if (deviceNameP) deviceNameP.innerHTML = `<strong>Playing on:</strong> ${songData.device.name} (${songData.device.type}) - Vol: ${songData.device.volume_percent}%`;
+                    } else if (deviceNameP) {
+                        deviceNameP.textContent = '';
+                    }
+                } else if (songData && !songData.isPlaying) {
+                    if (songInfoDiv) songInfoDiv.style.display = 'none';
+                    if (notPlayingP) {
+                        notPlayingP.textContent = songData.message || "Nothing is currently playing, or your Spotify app is not active.";
+                        notPlayingP.style.display = 'block';
+                    }
+                } else { // !songData or other initial states
+                    if (songInfoDiv) songInfoDiv.style.display = 'none';
+                    if (notPlayingP) {
+                        notPlayingP.textContent = "Loading song data or no song data available...";
+                        notPlayingP.style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                console.error("Error in updateDisplay:", e);
+                if (errorDisplayP) {
+                    errorDisplayP.textContent = "Client-side error rendering page. Check console.";
+                    errorDisplayP.style.display = 'block';
+                } else if (notPlayingP) { // Fallback to notPlayingP if errorDisplayP is somehow null
+                    notPlayingP.textContent = "Client-side error rendering page. Check console.";
+                    notPlayingP.style.display = 'block';
+                }
+                // If all else fails, alert or write directly to body might be needed for critical errors
+            }
+        }
+
+        async function fetchData() {
+            try {
+                const fetchUrl = `${siteUrl}/api/spotify/current`;
+                const response = await fetch(fetchUrl);
+                if (response.ok) {
+                    songData = await response.json();
+                    errorMessage = null;
+                } else {
+                    const errorJson = await response.json().catch(() => ({ error: "Failed to parse error JSON" }));
+                    errorMessage = `Error fetching song data: ${errorJson.error || response.statusText}`;
+                    songData = null;
+                }
+            } catch (err) {
+                errorMessage = `Failed to fetch: ${err.message}`;
+                songData = null;
+            }
+            updateDisplay();
+        }
+
+        // Initial display update
+        updateDisplay();
+
+        // Fetch data every second
+        setInterval(fetchData, 1000);
+    </script>
 </body>
 </html>
