@@ -12,27 +12,12 @@
 #define LED_PIN    2 // Pin connected to the DIN of the matrix
 #define MATRIX_WIDTH 32
 #define MATRIX_HEIGHT 8
-#define LED_COUNT (MATRIX_WIDTH * MATRIX_HEIGHT) // 256 LEDs total
+#define LED_COUNT (MATRIX_WIDTH * MATRIX_HEIGHT)
 #define MAX_BRIGHTNESS 8 // Brightness limit (0-255)
-#define SCROLL_SPEED 50 // Speed of text scrolling (lower is faster)
+#define SCROLL_SPEED 100 // Default delay (ms) for text scrolling (lower is faster)
+#define POT_PIN A0 // Analog pin for potentiometer
 
-// Parameter 1 = width of NeoPixel matrix
-// Parameter 2 = height of matrix
-// Parameter 3 = pin number (most are valid)
-// Parameter 4 = matrix layout flags, add together as needed:
-//   NEO_MATRIX_TOP, NEO_MATRIX_BOTTOM, NEO_MATRIX_LEFT, NEO_MATRIX_RIGHT:
-//     Position of the FIRST LED in the matrix; start corner.
-//   NEO_MATRIX_ROWS, NEO_MATRIX_COLUMNS: LEDs are arranged in horizontal
-//     rows or in vertical columns, respectively; major axis.
-//   NEO_MATRIX_PROGRESSIVE, NEO_MATRIX_ZIGZAG: all rows/columns proceed
-//     in the same order, or alternate lines reverse direction; minor axis.
-//   See example below for these values in action.
-// Parameter 5 = pixel type flags, add together as needed:
-//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
-//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
-//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
-//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
-//   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
+// Matrix layout configuration
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(MATRIX_WIDTH, MATRIX_HEIGHT, LED_PIN,
   NEO_MATRIX_TOP     + NEO_MATRIX_LEFT +
   NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG,
@@ -84,7 +69,7 @@ void setup() {
 
   Serial.println("Spotify MQTT Visualizer Starting...");
   Serial.print("WiFi SSID: "); Serial.println(ssid);
-  Serial.print("MQTT Broker: "); Serial.print(mqttBroker); Serial.print(":"); Serial.println(mqttPort);
+  // Serial.print("MQTT Broker: "); Serial.print(mqttBroker); Serial.print(":"); Serial.println(mqttPort);
 
   matrix.begin();
   matrix.setTextWrap(false); // Important for scrolling text
@@ -98,31 +83,31 @@ void setup() {
 
   // Set the MQTT message handler *before* connecting
   mqttClient.onMessage(onMqttMessage);
-  Serial.println("MQTT message handler configured.");
-  Serial.print("Will subscribe to topic: "); Serial.println(mqttTopic);
+  // Serial.println("MQTT message handler configured.");
+  // Serial.print("Will subscribe to topic: "); Serial.println(mqttTopic);
 
   // Set MQTT Broker details
   mqttClient.setId(mqttClientId); // Set Client ID
 
   // Set username/password ONLY if they are provided in secrets.h
   if (strlen(mqttUser) > 0 && strlen(mqttPassword) > 0) {
-      Serial.println("Setting MQTT username/password.");
+      // Serial.println("Setting MQTT username/password.");
       mqttClient.setUsernamePassword(mqttUser, mqttPassword);
   } else {
-      Serial.println("MQTT username/password not set in secrets.h, connecting without authentication.");
+      // Serial.println("MQTT username/password not set in secrets.h, connecting without authentication.");
   }
 
   connectToMqtt(); // Initial MQTT connection attempt
   Serial.println("Setup complete: WiFi and MQTT are configured.");
-  Serial.println("MQTT connection and subscription established in setup.");
+  // Serial.println("MQTT connection and subscription established in setup.");
 }
 
 // --- Main Loop ---
 void loop() {
 
-  Serial.println("\n--- Main loop iteration ---");
-  Serial.print("WiFi status: "); Serial.println(WiFi.status());
-  Serial.print("MQTT connected: "); Serial.println(mqttClient.connected());
+  // Serial.println("\n--- Main loop iteration ---");
+  // Serial.print("WiFi status: "); Serial.println(WiFi.status());
+  // Serial.print("MQTT connected: "); Serial.println(mqttClient.connected());
   // 1. Check WiFi Connection
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected. Attempting to reconnect...");
@@ -138,23 +123,28 @@ void loop() {
   }
 
   // 2. Check MQTT Connection & Poll
-  Serial.println("--- MQTT status check ---");
+  // Serial.println("--- MQTT status check ---");
   if (!mqttClient.connected()) {
     Serial.println("MQTT disconnected. Attempting to reconnect...");
     connectToMqtt();
   } else {
-    Serial.println("MQTT connected. Polling for messages...");
+    // Serial.println("MQTT connected. Polling for messages...");
     mqttClient.poll();
-    Serial.println("Done polling MQTT.");
+    // Serial.println("Done polling MQTT.");
   }
 
   // 3. Scrolling Text Animation OR Idle Animation
   if (isPlayingLocally && currentTrackName.length() > 0) {
+    // --- Scrolling Text Animation ---
     matrix.fillScreen(0);
 
-    // Use the globally updated lastPalette
-    int paletteSize = lastPalette.isNull() ? 0 : lastPalette.size();
+    // Read potentiometer for scroll speed
+    int potValue = analogRead(POT_PIN);
+    // Map the 0-1023 value to a delay range (e.g., 20ms - 200ms)
+    // Lower value = faster scroll
+    int currentScrollDelay = map(potValue, 0, 1023, 20, 200);
 
+    size_t paletteSize = lastPalette.isNull() ? 0 : lastPalette.size(); // Use size_t
     int x = scrollOffset;
     for (int i = 0; i < currentTrackName.length(); i++) {
         matrix.setCursor(x, 0);
@@ -215,11 +205,9 @@ void loop() {
     }
 
     matrix.show();
-    delay(SCROLL_SPEED); // Keep animation delay for scrolling text
+    delay(currentScrollDelay); // Use dynamic delay from potentiometer
   } else {
-    // Idle state: Play scrolling sine wave animation
-    // Serial.println("Entering idle animation block."); // Keep for debugging if needed
-
+    // --- Idle Animation (Scrolling Sine Wave) ---
     matrix.fillScreen(0); // Clear the screen first
 
     idleHue += 50; // Slowly cycle hue for the wave color (adjust speed)
@@ -302,10 +290,10 @@ void connectToWiFi() {
 
 // --- Connect to MQTT Broker ---
 void connectToMqtt() {
-  Serial.print("Attempting MQTT connection to broker: ");
-  Serial.print(mqttBroker);
-  Serial.print(":");
-  Serial.println(mqttPort);
+  // Serial.print("Attempting MQTT connection to broker: ");
+  // Serial.print(mqttBroker);
+  // Serial.print(":");
+  // Serial.println(mqttPort);
 
   // Connect to the broker
   // Note: The connect function blocks until connection succeeds or fails
@@ -319,15 +307,15 @@ void connectToMqtt() {
   }
 
   Serial.println("Connected to MQTT Broker!");
-  Serial.print("mqttClient.connected() = "); Serial.println(mqttClient.connected());
+  // Serial.print("mqttClient.connected() = "); Serial.println(mqttClient.connected());
 
   // Subscribe to the topic
-  Serial.print("Subscribing to topic: ");
-  Serial.println(mqttTopic);
+  // Serial.print("Subscribing to topic: ");
+  // Serial.println(mqttTopic);
   // subscribe() returns the QoS level granted (0, 1, or 2) on success, 0 on failure (if QoS > 0 requested)
   // For QoS 0, it might return 1 on success? Let's check for non-zero return.
   int subAck = mqttClient.subscribe(mqttTopic);
-  Serial.print("mqttClient.subscribe() returned: "); Serial.println(subAck);
+  // Serial.print("mqttClient.subscribe() returned: "); Serial.println(subAck);
   if (subAck == 0) { // Check if subscription failed (returned 0)
       Serial.print("MQTT subscription failed! Error code = ");
       // Note: ArduinoMqttClient doesn't provide a specific error code for subscribe failure beyond the return value.
@@ -343,109 +331,90 @@ void connectToMqtt() {
 
 // --- MQTT Message Handler ---
 void onMqttMessage(int messageSize) {
-  // We received a message, print the topic and contents
-  Serial.println("\nReceived MQTT message!");
-  Serial.print("Topic: ");
-  Serial.println(mqttClient.messageTopic());
-
-  // Use String to buffer message payload
   String payload = "";
-  payload.reserve(messageSize); // Allocate space for efficiency
+  payload.reserve(messageSize);
   while (mqttClient.available()) {
     payload += (char)mqttClient.read();
   }
-  Serial.print("Payload (");
-  Serial.print(payload.length()); // Use payload.length() instead of messageSize for actual read length
-  Serial.print(" bytes): ");
-  Serial.println(payload);
 
-  // Check if payload is empty or too small
    if (payload.length() == 0) {
-    Serial.println("Warning: Received empty payload.");
-    // Decide how to handle empty payload - maybe clear display?
-    // clearMatrix();
-    // matrix.show();
-    // isPlayingLocally = false;
-    // currentTrackName = "";
-    return; // Exit if no payload
+    Serial.println("Warning: Received empty payload. Assuming playback stopped.");
+    if (isPlayingLocally) { // If it was playing, now it's not.
+        currentTrackName = "";
+        scrollOffset = MATRIX_WIDTH;
+        lastPalette = JsonArrayConst();
+    }
+    isPlayingLocally = false; // Let main loop handle display based on this state
+    return;
   }
 
-  // Parse the JSON payload
-  // Adjust JSON document size as needed based on expected payload size
-  // Using dynamic allocation: safer for varying payload sizes but uses heap
-  Serial.println("Raw JSON payload:");
-  Serial.println(payload);  // Show exact message received
   DynamicJsonDocument doc(1024);
-  // Or use static allocation if max size is known and fits:
-  // StaticJsonDocument<1024> doc;
-
   DeserializationError error = deserializeJson(doc, payload);
 
   if (error) {
     Serial.print("deserializeJson() failed: ");
     Serial.println(error.c_str());
-    // If parsing fails, maybe the format is wrong or data corrupted
-    // Consider clearing the display or logging the raw payload for debugging
-    if (isPlayingLocally) { // Clear only if we thought it was playing
-      clearMatrix();
-      matrix.show();
+    if (isPlayingLocally) { // If it was playing, now it's not due to error.
+        currentTrackName = "";
+        scrollOffset = MATRIX_WIDTH;
+        lastPalette = JsonArrayConst();
     }
-    isPlayingLocally = false;
-    currentTrackName = "";
-    lastPalette = JsonArrayConst(); // Clear palette on error
-    return; // Exit if JSON is invalid
+    isPlayingLocally = false; // Let main loop handle display based on this state
+    return;
   }
 
-  // --- Process the received JSON data ---
-  // Check for the presence of key fields before accessing them
   if (!doc.containsKey("isPlaying")) {
-      Serial.println("Error: MQTT message missing 'isPlaying' field.");
-      // Optionally clear display or maintain state
-      // clearMatrix(); matrix.show(); isPlayingLocally = false; currentTrackName = "";
-      return; // Ignore message if essential data is missing
+      Serial.println("Error: MQTT message missing 'isPlaying' field. Assuming playback stopped.");
+      if (isPlayingLocally) {
+        currentTrackName = "";
+        scrollOffset = MATRIX_WIDTH;
+        lastPalette = JsonArrayConst();
+      }
+      isPlayingLocally = false; // Let main loop handle display based on this state
+      return;
   }
 
   bool isPlayingApi = doc["isPlaying"].as<bool>();
 
   if (isPlayingApi) {
-    // Music is playing according to MQTT message
-    // Check for essential track info
     if (!doc.containsKey("track") || !doc["track"].is<JsonObject>() || !doc["track"]["name"].is<const char*>()) {
-        Serial.println("Error: MQTT message missing valid track information while isPlaying is true.");
-        // Optionally clear display or keep previous state, but mark as not playing locally
-        if (isPlayingLocally) { clearMatrix(); matrix.show(); }
-        isPlayingLocally = false;
-        currentTrackName = "";
-        lastPalette = JsonArrayConst(); // Clear palette
+        Serial.println("Error: MQTT message missing valid track information while isPlaying is true. Assuming playback stopped.");
+        if (isPlayingLocally) {
+            currentTrackName = "";
+            scrollOffset = MATRIX_WIDTH;
+            lastPalette = JsonArrayConst();
+        }
+        isPlayingLocally = false; // Let main loop handle display based on this state
         return;
     }
 
-    // If playback just started (locally was false, now API is true)
-    if (!isPlayingLocally) {
-       Serial.println("Playback started (detected by MQTT).");
-       clearMatrix(); // Clear screen before showing new text
-       // matrix.show() will happen in the main loop's drawing section
-    }
+    // Valid playing message.
+    // The main loop's text animation block will handle clearing the screen if it was previously in idle mode.
+    // No clearMatrix() here.
+    
+    // Log if state is actually changing from not playing to playing
+    // if (!isPlayingLocally) {
+    //    Serial.println("Playback started (detected by MQTT).");
+    // }
     isPlayingLocally = true;
-    updateLEDs(doc); // Update track info, progress, palette, etc.
+    updateLEDs(doc); // This updates currentTrackName, palette, etc.
 
   } else {
-    // Music is not playing according to MQTT message
-    if (isPlayingLocally) {
+    // Music is not playing according to MQTT message (isPlayingApi is false)
+    if (isPlayingLocally) { // If it was playing, now it's stopped.
       Serial.println("Playback stopped (detected by MQTT).");
-      clearMatrix();
-      // matrix.show(); // Remove immediate show, let loop handle display update
-      currentTrackName = ""; // Clear track name when stopped
-      scrollOffset = MATRIX_WIDTH; // Reset scroll
+      currentTrackName = "";
+      scrollOffset = MATRIX_WIDTH;
       // Clear other state variables
       currentTrackDurationMs = 0;
       currentTrackProgressMs = 0;
       lastSyncTimeMs = 0;
-      lastPalette = JsonArrayConst(); // Clear the palette
+      lastPalette = JsonArrayConst();
     }
     isPlayingLocally = false;
-    // Ensure state is consistent even if it was already false
+    // Ensure currentTrackName is clear if it wasn't already (e.g. due to an error path setting isPlayingLocally to false but not clearing name)
     if (currentTrackName != "") { currentTrackName = ""; scrollOffset = MATRIX_WIDTH; }
+    // Ensure palette is clear if it wasn't already
     if (!lastPalette.isNull()) { lastPalette = JsonArrayConst(); }
   }
 }
@@ -467,7 +436,7 @@ void updateLEDs(const JsonDocument& doc) {
       // Basic validation of the first color entry structure
       if (paletteVariant[0].is<JsonArrayConst>() && paletteVariant[0].size() == 3) {
           lastPalette = paletteVariant.as<JsonArrayConst>();
-          Serial.println("Palette received and seems valid.");
+          // Serial.println("Palette received and seems valid.");
       } else {
           Serial.println("Warning: Received palette is invalid or empty array. Ignoring.");
           // Keep the old palette or clear it? Let's clear it.
@@ -476,15 +445,15 @@ void updateLEDs(const JsonDocument& doc) {
   } else {
     // No palette field, or it's not a valid array. Clear the existing one.
     if (!lastPalette.isNull()) { // Only print if clearing an existing palette
-        Serial.println("No valid palette in message. Clearing stored palette.");
+        // Serial.println("No valid palette in message. Clearing stored palette.");
         lastPalette = JsonArrayConst();
     }
   }
 
   // Check if track name changed
   if (newTrackName != currentTrackName) {
-    Serial.print("New track: ");
-    Serial.println(newTrackName);
+    // Serial.print("New track: ");
+    // Serial.println(newTrackName);
     currentTrackName = newTrackName;
     scrollOffset = MATRIX_WIDTH; // Reset scroll position for new text
 
@@ -495,8 +464,8 @@ void updateLEDs(const JsonDocument& doc) {
     matrix.getTextBounds(currentTrackName.c_str(), 0, 0, &tempX, &tempY, &tempW, &tempH);
     textWidthPixels = tempW; // Store the width
 
-    Serial.print("Text width: ");
-    Serial.println(textWidthPixels);
+    // Serial.print("Text width (using Font5x5_6pt7b): ");
+    // Serial.println(textWidthPixels);
   }
 
   // Sync playback timing info (if provided)
@@ -504,10 +473,10 @@ void updateLEDs(const JsonDocument& doc) {
   currentTrackProgressMs = newProgressMs;
   lastSyncTimeMs = millis(); // Record the time of this sync
 
-  Serial.print("Synced progress: ");
-  Serial.print(currentTrackProgressMs);
-  Serial.print(" / ");
-  Serial.println(currentTrackDurationMs);
+  // Serial.print("Synced progress: ");
+  // Serial.print(currentTrackProgressMs);
+  // Serial.print(" / ");
+  // Serial.println(currentTrackDurationMs);
 
   // The main loop handles the drawing based on isPlayingLocally and currentTrackName
 }
