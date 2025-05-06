@@ -80,6 +80,8 @@ void setup() {
   // while (!Serial); // Optional: Wait for serial connection on native USB ports
 
   Serial.println("Spotify MQTT Visualizer Starting...");
+  Serial.print("WiFi SSID: "); Serial.println(ssid);
+  Serial.print("MQTT Broker: "); Serial.print(mqttBroker); Serial.print(":"); Serial.println(mqttPort);
 
   matrix.begin();
   matrix.setTextWrap(false); // Important for scrolling text
@@ -93,6 +95,8 @@ void setup() {
 
   // Set the MQTT message handler *before* connecting
   mqttClient.onMessage(onMqttMessage);
+  Serial.println("MQTT message handler configured.");
+  Serial.print("Will subscribe to topic: "); Serial.println(mqttTopic);
 
   // Set MQTT Broker details
   mqttClient.setId(mqttClientId); // Set Client ID
@@ -106,12 +110,16 @@ void setup() {
   }
 
   connectToMqtt(); // Initial MQTT connection attempt
+  Serial.println("Setup complete: WiFi and MQTT are configured.");
+  Serial.println("MQTT connection and subscription established in setup.");
 }
 
 // --- Main Loop ---
 void loop() {
-  unsigned long currentTime = millis(); // Get current time once per loop
 
+  Serial.println("\n--- Main loop iteration ---");
+  Serial.print("WiFi status: "); Serial.println(WiFi.status());
+  Serial.print("MQTT connected: "); Serial.println(mqttClient.connected());
   // 1. Check WiFi Connection
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected. Attempting to reconnect...");
@@ -127,13 +135,14 @@ void loop() {
   }
 
   // 2. Check MQTT Connection & Poll
+  Serial.println("--- MQTT status check ---");
   if (!mqttClient.connected()) {
-    // If disconnected, attempt to reconnect MQTT
     Serial.println("MQTT disconnected. Attempting to reconnect...");
-    connectToMqtt(); // This function handles delays and retries internally
+    connectToMqtt();
   } else {
-    // If connected, poll for new messages and maintain connection
+    Serial.println("MQTT connected. Polling for messages...");
     mqttClient.poll();
+    Serial.println("Done polling MQTT.");
   }
 
   // 3. Scrolling Text Animation (Runs continuously if isPlayingLocally is true)
@@ -279,13 +288,16 @@ void connectToMqtt() {
   }
 
   Serial.println("Connected to MQTT Broker!");
+  Serial.print("mqttClient.connected() = "); Serial.println(mqttClient.connected());
 
   // Subscribe to the topic
   Serial.print("Subscribing to topic: ");
   Serial.println(mqttTopic);
   // subscribe() returns the QoS level granted (0, 1, or 2) on success, 0 on failure (if QoS > 0 requested)
   // For QoS 0, it might return 1 on success? Let's check for non-zero return.
-  if (mqttClient.subscribe(mqttTopic) == 0) { // Check if subscription failed (returned 0)
+  int subAck = mqttClient.subscribe(mqttTopic);
+  Serial.print("mqttClient.subscribe() returned: "); Serial.println(subAck);
+  if (subAck == 0) { // Check if subscription failed (returned 0)
       Serial.print("MQTT subscription failed! Error code = ");
       // Note: ArduinoMqttClient doesn't provide a specific error code for subscribe failure beyond the return value.
       Serial.println(mqttClient.connectError()); // connectError might give related info if connection dropped
@@ -330,7 +342,9 @@ void onMqttMessage(int messageSize) {
   // Parse the JSON payload
   // Adjust JSON document size as needed based on expected payload size
   // Using dynamic allocation: safer for varying payload sizes but uses heap
-  JsonDocument doc;
+  Serial.println("Raw JSON payload:");
+  Serial.println(payload);  // Show exact message received
+  DynamicJsonDocument doc(1024);
   // Or use static allocation if max size is known and fits:
   // StaticJsonDocument<1024> doc;
 
