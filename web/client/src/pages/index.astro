@@ -25,6 +25,9 @@ const formatMillis = (ms: number) => {
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 };
+
+let initialSongData = songData;
+let initialErrorMessage = errorMessage;
 ---
 
 <html lang="en">
@@ -60,47 +63,133 @@ const formatMillis = (ms: number) => {
         }
         .time-display { display: flex; justify-content: space-between; font-size: 0.9em; color: #b3b3b3; }
     </style>
+    <script define:vars={{ initialSongData, initialErrorMessage, siteUrl }}>
+        let songData = initialSongData;
+        let errorMessage = initialErrorMessage;
+        const songInfoDiv = document.getElementById('song-info-container');
+        const errorDisplayP = document.getElementById('error-display');
+        const notPlayingP = document.getElementById('not-playing-display');
+        const progressBar = document.getElementById('progress-bar');
+        const currentTimeSpan = document.getElementById('current-time');
+        const totalTimeSpan = document.getElementById('total-time');
+        const albumArtImg = document.getElementById('album-art');
+        const trackNameP = document.getElementById('track-name');
+        const artistNameP = document.getElementById('artist-name');
+        const albumNameP = document.getElementById('album-name');
+        const deviceNameP = document.getElementById('device-name');
+
+        const formatMillis = (ms) => {
+            if (typeof ms !== 'number' || isNaN(ms)) return 'N/A';
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        };
+
+        function updateDisplay() {
+            if (errorMessage) {
+                if (errorDisplayP) errorDisplayP.textContent = errorMessage;
+                if (songInfoDiv) songInfoDiv.style.display = 'none';
+                if (notPlayingP) notPlayingP.style.display = 'none';
+                return;
+            }
+
+            if (errorDisplayP) errorDisplayP.style.display = 'none';
+
+            if (songData && songData.isPlaying) {
+                if (songInfoDiv) songInfoDiv.style.display = 'block';
+                if (notPlayingP) notPlayingP.style.display = 'none';
+
+                if (albumArtImg && songData.track.albumArtUrl) {
+                    albumArtImg.src = songData.track.albumArtUrl;
+                    albumArtImg.alt = `Album art for ${songData.track.album}`;
+                    albumArtImg.style.display = 'block';
+                } else if (albumArtImg) {
+                    albumArtImg.style.display = 'none';
+                }
+                if (trackNameP) trackNameP.innerHTML = `<strong>Track:</strong> ${songData.track.name}`;
+                if (artistNameP) artistNameP.innerHTML = `<strong>Artist(s):</strong> ${songData.track.artists.join(', ')}`;
+                if (albumNameP) albumNameP.innerHTML = `<strong>Album:</strong> ${songData.track.album}`;
+                
+                if (currentTimeSpan) currentTimeSpan.textContent = formatMillis(songData.progress_ms);
+                if (totalTimeSpan) totalTimeSpan.textContent = formatMillis(songData.duration_ms);
+                if (progressBar) progressBar.style.width = `${(songData.progress_ms / songData.duration_ms) * 100}%`;
+
+                if (songData.device) {
+                    if (deviceNameP) deviceNameP.innerHTML = `<strong>Playing on:</strong> ${songData.device.name} (${songData.device.type}) - Vol: ${songData.device.volume_percent}%`;
+                } else if (deviceNameP) {
+                    deviceNameP.textContent = '';
+                }
+
+            } else if (songData && !songData.isPlaying) {
+                if (songInfoDiv) songInfoDiv.style.display = 'none';
+                if (notPlayingP) {
+                    notPlayingP.textContent = songData.message || "Nothing is currently playing, or your Spotify app is not active.";
+                    notPlayingP.style.display = 'block';
+                }
+            } else {
+                if (songInfoDiv) songInfoDiv.style.display = 'none';
+                if (notPlayingP) {
+                    notPlayingP.textContent = "Loading song data or no song data available...";
+                    notPlayingP.style.display = 'block';
+                }
+            }
+        }
+
+        async function fetchData() {
+            try {
+                const fetchUrl = `${siteUrl}/api/spotify/current`;
+                const response = await fetch(fetchUrl);
+                if (response.ok) {
+                    songData = await response.json();
+                    errorMessage = null;
+                } else {
+                    const errorJson = await response.json();
+                    errorMessage = `Error fetching song data: ${errorJson.error || response.statusText}`;
+                    songData = null;
+                }
+            } catch (err) {
+                errorMessage = `Failed to fetch: ${err.message}`;
+                songData = null;
+            }
+            updateDisplay();
+        }
+
+        // Initial display update
+        updateDisplay();
+
+        // Fetch data every second
+        setInterval(fetchData, 1000);
+    </script>
 </head>
 <body>
     <div class="container">
         <h1>Spotify - Now Playing</h1>
 
-        {errorMessage && <p class="error">{errorMessage}</p>}
+        <p id="error-display" class="error" style="display: none;"></p>
 
-        {songData && songData.isPlaying ? (
-            <div class="song-info">
-                {songData.track.albumArtUrl && <img src={songData.track.albumArtUrl} alt={`Album art for ${songData.track.album}`} class="album-art"/>}
-                <p><strong>Track:</strong> {songData.track.name}</p>
-                <p><strong>Artist(s):</strong> {songData.track.artists.join(', ')}</p>
-                <p><strong>Album:</strong> {songData.track.album}</p>
-                <div class="progress-info">
-                    <div class="time-display">
-                        <span>{formatMillis(songData.progress_ms)}</span>
-                        <span>{formatMillis(songData.duration_ms)}</span>
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" style={`width: ${(songData.progress_ms / songData.duration_ms) * 100}%`}></div>
-                    </div>
+        <div id="song-info-container" class="song-info" style="display: none;">
+            <img id="album-art" src="" alt="Album art" class="album-art" style="display: none;"/>
+            <p id="track-name"></p>
+            <p id="artist-name"></p>
+            <p id="album-name"></p>
+            <div class="progress-info">
+                <div class="time-display">
+                    <span id="current-time"></span>
+                    <span id="total-time"></span>
                 </div>
-                {songData.device && (
-                    <p><strong>Playing on:</strong> {songData.device.name} ({songData.device.type}) - Vol: {songData.device.volume_percent}%</p>
-                )}
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                </div>
             </div>
-        ) : songData && !songData.isPlaying ? (
-            <p class="not-playing">{songData.message || "Nothing is currently playing, or your Spotify app is not active."}</p>
-        ) : !errorMessage ? (
-            <p class="not-playing">Loading song data or no song data available...</p>
-        ) : null}
-         <p style="text-align:center; margin-top: 20px;">
+            <p id="device-name"></p>
+        </div>
+        
+        <p id="not-playing-display" class="not-playing"></p>
+
+        <p style="text-align:center; margin-top: 20px;">
             <a href="/api/auth/login" style="color: #1DB954; text-decoration: none; padding: 10px 15px; border: 1px solid #1DB954; border-radius: 20px;">Login with Spotify</a>
         </p>
     </div>
-
-    <script>
-      // Optional: Auto-refresh the data every few seconds
-      // setInterval(() => {
-      //   window.location.reload();
-      // }, 5000); // Refresh every 5 seconds
-    </script>
 </body>
 </html>
