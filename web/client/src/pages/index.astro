@@ -2,7 +2,7 @@
 // Fetch data from the new API route
 let songData = null;
 let errorMessage = null;
-const siteUrl = Astro.site ? Astro.site.toString().replace(/\/$/, '') : 'http://localhost:4321'; // Fallback for dev
+const siteUrl = Astro.site ? Astro.site.toString().replace(/\/$/, '') : (import.meta.env.DEV ? 'http://localhost:4321' : 'https://cdev-spotify-visualizer.netlify.app');
 
 try {
   const fetchUrl = `${siteUrl}/api/spotify/current`;
