@@ -1,16 +1,102 @@
 ---
+// Fetch data from the new API route
+let songData = null;
+let errorMessage = null;
+try {
+  const response = await fetch('/api/spotify/current');
+  if (response.ok) {
+    songData = await response.json();
+  } else {
+    const errorJson = await response.json();
+    errorMessage = `Error fetching song data: ${errorJson.error || response.statusText}`;
+  }
+} catch (err: any) {
+  errorMessage = `Failed to fetch: ${err.message}`;
+}
 
+const formatMillis = (ms: number) => {
+  if (typeof ms !== 'number' || isNaN(ms)) return 'N/A';
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+};
 ---
 
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Spotify Visualizer - Now Playing</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #121212; color: #fff; }
+        .container { max-width: 600px; margin: auto; background-color: #1e1e1e; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        h1 { color: #1DB954; text-align: center; }
+        .song-info { margin-top: 20px; }
+        .song-info p { margin: 8px 0; }
+        .song-info strong { color: #b3b3b3; }
+        .album-art { max-width: 200px; max-height: 200px; border-radius: 4px; margin-top: 10px; display: block; margin-left: auto; margin-right: auto;}
+        .error { color: #f44336; background-color: #333; padding: 10px; border-radius: 4px; }
+        .not-playing { text-align: center; font-style: italic; color: #b3b3b3;}
+        .progress-bar-container {
+            width: 100%;
+            background-color: #535353;
+            border-radius: 4px;
+            height: 10px;
+            margin-top: 5px;
+            overflow: hidden; /* Ensures the inner bar stays within bounds */
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #1DB954;
+            border-radius: 4px;
+            transition: width 0.5s ease-in-out;
+        }
+        .time-display { display: flex; justify-content: space-between; font-size: 0.9em; color: #b3b3b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Spotify - Now Playing</h1>
+
+        {errorMessage && <p class="error">{errorMessage}</p>}
+
+        {songData && songData.isPlaying ? (
+            <div class="song-info">
+                {songData.track.albumArtUrl && <img src={songData.track.albumArtUrl} alt={`Album art for ${songData.track.album}`} class="album-art"/>}
+                <p><strong>Track:</strong> {songData.track.name}</p>
+                <p><strong>Artist(s):</strong> {songData.track.artists.join(', ')}</p>
+                <p><strong>Album:</strong> {songData.track.album}</p>
+                <div class="progress-info">
+                    <div class="time-display">
+                        <span>{formatMillis(songData.progress_ms)}</span>
+                        <span>{formatMillis(songData.duration_ms)}</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style={`width: ${(songData.progress_ms / songData.duration_ms) * 100}%`}></div>
+                    </div>
+                </div>
+                {songData.device && (
+                    <p><strong>Playing on:</strong> {songData.device.name} ({songData.device.type}) - Vol: {songData.device.volume_percent}%</p>
+                )}
+            </div>
+        ) : songData && !songData.isPlaying ? (
+            <p class="not-playing">{songData.message || "Nothing is currently playing, or your Spotify app is not active."}</p>
+        ) : !errorMessage ? (
+            <p class="not-playing">Loading song data or no song data available...</p>
+        ) : null}
+         <p style="text-align:center; margin-top: 20px;">
+            <a href="/api/auth/login" style="color: #1DB954; text-decoration: none; padding: 10px 15px; border: 1px solid #1DB954; border-radius: 20px;">Login with Spotify</a>
+        </p>
+    </div>
+
+    <script>
+      // Optional: Auto-refresh the data every few seconds
+      // setInterval(() => {
+      //   window.location.reload();
+      // }, 5000); // Refresh every 5 seconds
+    </script>
+</body>
 </html>
