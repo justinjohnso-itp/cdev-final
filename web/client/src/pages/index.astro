@@ -88,7 +88,10 @@ let initialErrorMessage = errorMessage;
 
         function updateDisplay() {
             if (errorMessage) {
-                if (errorDisplayP) errorDisplayP.textContent = errorMessage;
+                if (errorDisplayP) {
+                    errorDisplayP.textContent = errorMessage;
+                    errorDisplayP.style.display = 'block'; // Ensure error message is visible
+                }
                 if (songInfoDiv) songInfoDiv.style.display = 'none';
                 if (notPlayingP) notPlayingP.style.display = 'none';
                 return;
