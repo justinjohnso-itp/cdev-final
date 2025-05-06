@@ -14,6 +14,7 @@
 #define MATRIX_HEIGHT 8
 #define LED_COUNT (MATRIX_WIDTH * MATRIX_HEIGHT) // 256 LEDs total
 #define MAX_BRIGHTNESS 8 // Brightness limit (0-255)
+#define SCROLL_SPEED 50 // Speed of text scrolling (lower is faster)
 
 // Parameter 1 = width of NeoPixel matrix
 // Parameter 2 = height of matrix
@@ -55,6 +56,8 @@ int status = WL_IDLE_STATUS; // WiFi status
 String currentTrackName = "";
 int scrollOffset = MATRIX_WIDTH; // Start text off-screen to the right
 int textWidthPixels = 0; // To store calculated width of the track name
+uint16_t idleHue = 0; // Hue for idle animation color cycling (0-65535)
+float waveOffset = 0.0; // Offset for scrolling sine wave animation
 
 // Variables for smooth playback tracking (still relevant if MQTT sends progress)
 bool isPlayingLocally = false; // Our local state of playback
@@ -145,8 +148,7 @@ void loop() {
     Serial.println("Done polling MQTT.");
   }
 
-  // 3. Scrolling Text Animation (Runs continuously if isPlayingLocally is true)
-  // This logic remains largely the same, driven by isPlayingLocally and currentTrackName
+  // 3. Scrolling Text Animation OR Idle Animation
   if (isPlayingLocally && currentTrackName.length() > 0) {
     matrix.fillScreen(0);
 
@@ -155,7 +157,7 @@ void loop() {
 
     int x = scrollOffset;
     for (int i = 0; i < currentTrackName.length(); i++) {
-        matrix.setCursor(x, 1);
+        matrix.setCursor(x, 0);
 
         // Calculate color based on gradient logic
         uint16_t color = matrix.Color(255, 255, 255); // Default white
@@ -213,13 +215,42 @@ void loop() {
     }
 
     matrix.show();
-    delay(80); // Keep animation delay
+    delay(SCROLL_SPEED); // Keep animation delay for scrolling text
   } else {
-    // If not playing or no track name, ensure LEDs are off
-    // (clearMatrix() was called when stopping, but good to be sure)
-    // matrix.fillScreen(0); // Optional: ensure screen stays black
-    // matrix.show();        // Optional: ensure screen stays black
-    delay(50); // Small delay when idle to prevent tight loop
+    // Idle state: Play scrolling sine wave animation
+    // Serial.println("Entering idle animation block."); // Keep for debugging if needed
+
+    matrix.fillScreen(0); // Clear the screen first
+
+    idleHue += 50; // Slowly cycle hue for the wave color (adjust speed)
+    waveOffset += 0.1; // Increment offset to scroll the wave (adjust speed)
+    // Reset offset periodically to prevent potential float overflow/precision issues over long time
+    if (waveOffset > TWO_PI * 10) { 
+        waveOffset -= TWO_PI * 10;
+    }
+
+    // Calculate wave parameters
+    float amplitude = (MATRIX_HEIGHT / 2.0) - 1.0; // Max amplitude is half height minus 1
+    float frequency = TWO_PI / (MATRIX_WIDTH / 1.5); // Adjust denominator for more/fewer waves (e.g., / 1.0 for one wave, / 2.0 for two)
+    float verticalCenter = (MATRIX_HEIGHT / 2.0) - 0.5; // Center line for the wave
+
+    // Calculate color for this frame
+    uint16_t waveColor = matrix.ColorHSV(idleHue, 255, 255); // Use max saturation/value, rely on global brightness
+
+    // Draw the sine wave
+    for (int x = 0; x < MATRIX_WIDTH; x++) {
+        // Calculate the vertical position (y) for the wave at this column (x)
+        float y_float = amplitude * sin(frequency * x + waveOffset) + verticalCenter;
+        int y = round(y_float); // Round to the nearest integer pixel row
+        
+        // Ensure the calculated y is within the matrix bounds
+        y = constrain(y, 0, MATRIX_HEIGHT - 1); 
+        
+        matrix.drawPixel(x, y, waveColor); // Draw the pixel for the wave
+    }
+
+    matrix.show(); // Update the display
+    delay(50);     // Delay to control animation speed (adjust as needed, lower is faster)
   }
 }
 
@@ -403,7 +434,7 @@ void onMqttMessage(int messageSize) {
     if (isPlayingLocally) {
       Serial.println("Playback stopped (detected by MQTT).");
       clearMatrix();
-      matrix.show(); // Show the cleared screen immediately
+      // matrix.show(); // Remove immediate show, let loop handle display update
       currentTrackName = ""; // Clear track name when stopped
       scrollOffset = MATRIX_WIDTH; // Reset scroll
       // Clear other state variables
